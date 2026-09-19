@@ -99,12 +99,12 @@
             align-items: center;
         }
         .med-img {
-            width: 100px;
-            height: 100px;
+            width: 110px;
+            height: 110px;
             object-fit: cover;
             border-radius: 50%;
             border: 3px solid var(--primary);
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             background: #e2e8f0;
         }
         .med-card-idoso h3 {
@@ -205,7 +205,6 @@
             <h2>Seus Remédios de Hoje</h2>
             <p>Toque no botão abaixo assim que tomar o seu remédio:</p>
 
-            <!-- Lista Dinâmica de Remédios do Idoso -->
             <div id="idoso-meds-container">
                 <p style="text-align: center; color: #64748b;">A carregar medicamentos...</p>
             </div>
@@ -214,9 +213,8 @@
         <!-- ÁREA DO CUIDADOR -->
         <div id="section-cuidador" class="section">
             <h2>Gestão de Medicamentos</h2>
-            <p>Adicione ou remova os remédios que aparecerão para a sua mãe:</p>
+            <p>Adicione novos remédios (com foto opcional pela câmara) ou remova itens:</p>
             
-            <!-- Formulário para Cadastrar Novo Remédio -->
             <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <h3>Cadastrar Novo Remédio</h3>
                 <div class="form-group">
@@ -228,8 +226,8 @@
                     <input type="text" id="novo-horario" placeholder="Ex: 08:00 (Jejum)">
                 </div>
                 <div class="form-group">
-                    <label>Link da Foto do Comprimido (URL da imagem):</label>
-                    <input type="text" id="novo-foto" placeholder="Cole o link de uma imagem da internet">
+                    <label>Foto do Remédio (Opcional - Tire com a câmara ou escolha do celular):</label>
+                    <input type="file" id="novo-foto" accept="image/*" capture="environment" style="background: white; padding: 8px;">
                 </div>
                 <button class="btn-add" onclick="adicionarRemedio()">Adicionar Remédio</button>
             </div>
@@ -283,21 +281,36 @@
             }
         }
 
-        // Função do Cuidador: Adicionar Novo Remédio
+        // Função do Cuidador: Adicionar Novo Remédio com Foto Opcional via Câmara
         function adicionarRemedio() {
             const nome = document.getElementById('novo-nome').value.trim();
             const horario = document.getElementById('novo-horario').value.trim();
-            const foto = document.getElementById('novo-foto').value.trim() || 'https://via.placeholder.com/100?text=Remedio';
+            const inputFoto = document.getElementById('novo-foto');
 
             if (!nome || !horario) {
                 alert("Por favor, preencha o nome e o horário do remédio.");
                 return;
             }
 
+            // Ícone padrão caso nenhuma foto seja tirada/enviada
+            const fotoPadrao = 'https://cdn-icons-png.flaticon.com/512/883/883397.png';
+
+            if (inputFoto.files && inputFoto.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    salvarNoFirebase(nome, horario, e.target.result);
+                };
+                reader.readAsDataURL(inputFoto.files[0]);
+            } else {
+                salvarNoFirebase(nome, horario, fotoPadrao);
+            }
+        }
+
+        function salvarNoFirebase(nome, horario, fotoUrl) {
             db.collection("medicamentos").add({
                 nome: nome,
                 horario: horario,
-                foto: foto,
+                foto: fotoUrl,
                 status: "Pendente",
                 horaTomado: ""
             }).then(() => {
@@ -307,61 +320,56 @@
                 alert("Remédio cadastrado com sucesso!");
             }).catch((error) => {
                 console.error("Erro ao adicionar: ", error);
+                alert("Erro ao cadastrar remédio.");
             });
         }
 
         // Função do Cuidador: Deletar Remédio
         function deletarRemedio(id) {
             if (confirm("Tem certeza que deseja remover este remédio?")) {
-                db.collection("medicamentos").doc(id).delete().then(() => {
-                    alert("Remédio removido com sucesso!");
-                }).catch((error) => {
+                db.collection("medicamentos").doc(id).delete().catch((error) => {
                     console.error("Erro ao deletar: ", error);
                 });
             }
         }
 
         // Função do Idoso: Marcar como Tomado
-        function tomarRemedio(id, nome) {
+        function tomarRemedio(id) {
             const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             
             db.collection("medicamentos").doc(id).update({
                 status: "Tomado",
                 horaTomado: horarioAtual
-            }).then(() => {
-                // Sincronizado na nuvem
             });
         }
 
-        // Sincronização em Tempo Real (Ouvinte Firestore)
+        // Sincronização em Tempo Real (Firestore)
         db.collection("medicamentos").onSnapshot((querySnapshot) => {
             let idosoHtml = "";
             let cuidadorHtml = "";
 
             if (querySnapshot.empty) {
-                idosoHtml = "<p style='text-align:center;'>Nenhum remédio cadastrado no momento.</p>";
-                cuidadorHtml = "<p style='text-align:center;'>Nenhum remédio cadastrado.</p>";
+                idosoHtml = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado no momento.</p>";
+                cuidadorHtml = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado.</p>";
             } else {
                 querySnapshot.forEach((doc) => {
                     const med = doc.data();
                     const id = doc.id;
                     const isTomado = med.status === "Tomado";
 
-                    // Montar HTML da Área do Idoso
                     idosoHtml += `
                         <div class="med-card-idoso">
                             <img src="${med.foto}" alt="${med.nome}" class="med-img">
                             <h3>${med.nome}</h3>
                             <p>Horário: ${med.horario}</p>
                             <button id="btn-${id}" class="big-btn ${isTomado ? 'taken' : ''}" 
-                                    onclick="tomarRemedio('${id}', '${med.nome}')" 
+                                    onclick="tomarRemedio('${id}')" 
                                     ${isTomado ? 'disabled' : ''}>
                                 ${isTomado ? 'JÁ TOMEI ESTE REMÉDIO ✔️ (Tudo Certo!)' : 'HORA DE TOMAR O REMÉDIO!'}
                             </button>
                         </div>
                     `;
 
-                    // Montar HTML da Área do Cuidador
                     cuidadorHtml += `
                         <div class="caregiver-item">
                             <div>
