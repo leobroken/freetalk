@@ -168,6 +168,11 @@
             animation: piscarBotao 0.8s infinite alternate;
             background-color: var(--danger) !important;
         }
+        .big-btn:disabled {
+            background-color: #94a3b8 !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
         @keyframes piscarBotao {
             from { opacity: 1; transform: scale(1); }
             to { opacity: 0.5; transform: scale(1.02); }
@@ -192,17 +197,17 @@
         .codigo-destaque { font-size: 1.8rem; font-weight: bold; color: var(--success); letter-spacing: 2px; margin: 5px 0; }
 
         #alerta-urgente-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(220, 38, 38, 0.95); z-index: 9999; display: none;
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(220, 38, 38, 0.98); z-index: 2147483647; display: none;
             flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; padding: 20px; box-sizing: border-box;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            box-shadow: 0 0 100px rgba(0,0,0,0.9);
         }
         #alerta-urgente-overlay h2 { font-size: 2.2rem; margin-bottom: 15px; animation: piscar 0.8s infinite alternate; }
         @keyframes piscar { from { opacity: 1; } to { opacity: 0.4; } }
     </style>
 </head>
 <body>
-    <!-- Ecrã de Alerta Urgente (Sobreposto aos aplicativos) -->
+    <!-- Ecrã de Alerta Urgente (Sobreposição Total Máxima) -->
     <div id="alerta-urgente-overlay">
         <h2>🚨 HORA DO REMÉDIO! 🚨</h2>
         <p id="texto-aviso-urgente" style="font-size: 1.3rem; margin-bottom: 25px;">Está na hora de tomar o seu medicamento.</p>
@@ -321,7 +326,7 @@
                 </div>
 
                 <h2>Seus Remédios de Hoje</h2>
-                <p>Toque no botão abaixo assim que tomar o seu remédio:</p>
+                <p>Toque no botão abaixo assim que chegar a hora de tomar o seu remédio:</p>
                 <div id="idoso-meds-container">
                     <p style="text-align: center; color: #64748b;">A carregar medicamentos...</p>
                 </div>
@@ -659,90 +664,111 @@
             unsubscribeMedicamentos = db.collection('medicamentos')
                 .where('codigoVinculo', '==', codigoVinculo)
                 .onSnapshot((snapshot) => {
-                    let idosoHtml = "";
+                    let listaMedicamentos = [];
                     let cuidadorHtml = "";
                     const hoje = new Date().toISOString().split('T')[0];
                     let dispararAlarmeIdoso = false;
                     let nomeUrgente = "";
 
                     if (snapshot.empty) {
-                        idosoHtml = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado no momento.</p>";
-                        cuidadorHtml = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado.</p>";
-                    } else {
-                        snapshot.forEach((doc) => {
-                            const med = doc.data();
-                            const id = doc.id;
-
-                            if (!med.continuo && med.dataTermino && hoje > med.dataTermino) {
-                                db.collection('medicamentos').doc(id).delete();
-                                return;
-                            }
-
-                            if (med.continuo && med.status === "Tomado" && med.dataAtualizacao !== hoje) {
-                                db.collection('medicamentos').doc(id).update({
-                                    status: "Pendente",
-                                    alertaUrgente: false,
-                                    avisoEnviadoAoCuidador: false,
-                                    horaTomado: "",
-                                    dataAtualizacao: hoje
-                                });
-                                return;
-                            }
-
-                            const isTomado = med.status === "Tomado";
-                            const horaAtualStr = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-                            
-                            let classeBotaoIdoso = "big-btn";
-                            if (med.horario === horaAtualStr && !isTomado) {
-                                dispararAlarmeIdoso = true;
-                                nomeUrgente = med.nome;
-                                classeBotaoIdoso += " piscando";
-
-                                if (!timeoutAlarmeIdoso) {
-                                    timeoutAlarmeIdoso = setTimeout(() => {
-                                        db.collection('medicamentos').doc(id).update({
-                                            alertaUrgente: true,
-                                            avisoEnviadoAoCuidador: true
-                                        });
-                                    }, 60000); // 1 minuto para escalar ao cuidador
-                                }
-                            }
-
-                            let infoTratamento = med.continuo ? '• <i>(Uso Contínuo)</i>' : `• <i>(Até ${med.dataTermino.split('-').reverse().join('/')})</i>`;
-
-                            idosoHtml += `
-                                <div class="med-card-idoso">
-                                    <img src="${med.foto}" alt="${med.nome}" class="med-img">
-                                    <h3>${med.nome}</h3>
-                                    <p>Horário: ${med.horario} <br>${infoTratamento}</p>
-                                    <button class="${classeBotaoIdoso} ${isTomado ? 'taken' : ''}" onclick="tomarRemedio('${id}')" ${isTomado ? 'disabled' : ''}>
-                                        ${isTomado ? 'REMÉDIO JÁ TOMADO HOJE ✔️' : 'JÁ TOMEI O REMÉDIO'}
-                                    </button>
-                                </div>
-                            `;
-
-                            const btnAvisarTexto = med.avisoEnviadoAoCuidador ? 'IDOSO AVISADO ✔️' : '🚨 AVISAR IDOSO';
-                            const btnAvisarClasse = med.avisoEnviadoAoCuidador ? 'btn-alertar avisado' : 'btn-alertar';
-
-                            cuidadorHtml += `
-                                <div class="caregiver-item">
-                                    <div style="flex: 1; min-width: 200px;">
-                                        <img src="${med.foto}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 8px;">
-                                        <strong>${med.nome}</strong> (${med.horario})<br>
-                                        <span style="margin-left: 48px; font-size: 0.85rem; color: #475569;">
-                                            Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
-                                                ${isTomado ? 'Tomado às ' + med.horaTomado + ' ✅' : 'Pendente'}
-                                            </span>
-                                        </span>
-                                    </div>
-                                    <div style="display: flex; gap: 5px;">
-                                        ${!isTomado ? `<button class="${btnAvisarClasse}" onclick="avisarIdosoManual('${id}', '${med.nome}')">${btnAvisarTexto}</button>` : ''}
-                                        <button class="btn-delete" onclick="deletarRemedio('${id}')">Excluir</button>
-                                    </div>
-                                </div>
-                            `;
-                        });
+                        document.getElementById('idoso-meds-container').innerHTML = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado no momento.</p>";
+                        document.getElementById('cuidador-list-container').innerHTML = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado.</p>";
+                        return;
                     }
+
+                    snapshot.forEach((doc) => {
+                        const med = doc.data();
+                        const id = doc.id;
+
+                        if (!med.continuo && med.dataTermino && hoje > med.dataTermino) {
+                            db.collection('medicamentos').doc(id).delete();
+                            return;
+                        }
+
+                        if (med.continuo && med.status === "Tomado" && med.dataAtualizacao !== hoje) {
+                            db.collection('medicamentos').doc(id).update({
+                                status: "Pendente",
+                                alertaUrgente: false,
+                                avisoEnviadoAoCuidador: false,
+                                horaTomado: "",
+                                dataAtualizacao: hoje
+                            });
+                            return;
+                        }
+
+                        listaMedicamentos.push({ id, ...med });
+                    });
+
+                    // ORDENAÇÃO INTELIGENTE: Pendentes no topo, Tomados no fundo
+                    listaMedicamentos.sort((a, b) => {
+                        if (a.status === "Tomado" && b.status !== "Tomado") return 1;
+                        if (a.status !== "Tomado" && b.status === "Tomado") return -1;
+                        return a.horario.localeCompare(b.horario);
+                    });
+
+                    const agoraData = new Date();
+                    const horaAtualStr = agoraData.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+                    let idosoHtml = "";
+
+                    listaMedicamentos.forEach((med) => {
+                        const isTomado = med.status === "Tomado";
+                        let podeTomar = true;
+
+                        // Validação: O idoso só pode apertar se o horário atual for >= horário do remédio
+                        if (horaAtualStr < med.horario) {
+                            podeTomar = false;
+                        }
+
+                        let classeBotaoIdoso = "big-btn";
+                        if (!isTomado && horaAtualStr >= med.horario) {
+                            dispararAlarmeIdoso = true;
+                            nomeUrgente = med.nome;
+                            classeBotaoIdoso += " piscando";
+
+                            if (!timeoutAlarmeIdoso) {
+                                timeoutAlarmeIdoso = setTimeout(() => {
+                                    db.collection('medicamentos').doc(med.id).update({
+                                        alertaUrgente: true,
+                                        avisoEnviadoAoCuidador: true
+                                    });
+                                }, 60000); // 1 minuto para escalar ao cuidador
+                            }
+                        }
+
+                        let infoTratamento = med.continuo ? '• <i>(Uso Contínuo)</i>' : `• <i>(Até ${med.dataTermino.split('-').reverse().join('/')})</i>`;
+
+                        idosoHtml += `
+                            <div class="med-card-idoso" style="${isTomado ? 'opacity: 0.75; background: #e2e8f0;' : ''}">
+                                <img src="${med.foto}" alt="${med.nome}" class="med-img">
+                                <h3>${med.nome}</h3>
+                                <p>Horário: ${med.horario} <br>${infoTratamento}</p>
+                                <button class="${classeBotaoIdoso} ${isTomado ? 'taken' : ''}" onclick="tomarRemedio('${med.id}')" ${isTomado || !podeTomar ? 'disabled' : ''}>
+                                    ${isTomado ? 'REMÉDIO JÁ TOMADO HOJE ✔️' : (!podeTomar ? `AGUARDE (Horário: ${med.horario})` : 'JÁ TOMEI O REMÉDIO')}
+                                </button>
+                            </div>
+                        `;
+
+                        const btnAvisarTexto = med.avisoEnviadoAoCuidador ? 'IDOSO AVISADO ✔️' : '🚨 AVISAR IDOSO';
+                        const btnAvisarClasse = med.avisoEnviadoAoCuidador ? 'btn-alertar avisado' : 'btn-alertar';
+
+                        cuidadorHtml += `
+                            <div class="caregiver-item">
+                                <div style="flex: 1; min-width: 200px;">
+                                    <img src="${med.foto}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 8px;">
+                                    <strong>${med.nome}</strong> (${med.horario})<br>
+                                    <span style="margin-left: 48px; font-size: 0.85rem; color: #475569;">
+                                        Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
+                                            ${isTomado ? 'Tomado às ' + med.horaTomado + ' ✅' : 'Pendente'}
+                                        </span>
+                                    </span>
+                                </div>
+                                <div style="display: flex; gap: 5px;">
+                                    ${!isTomado ? `<button class="${btnAvisarClasse}" onclick="avisarIdosoManual('${med.id}', '${med.nome}')">${btnAvisarTexto}</button>` : ''}
+                                    <button class="btn-delete" onclick="deletarRemedio('${med.id}')">Excluir</button>
+                                </div>
+                            </div>
+                        `;
+                    });
 
                     document.getElementById('idoso-meds-container').innerHTML = idosoHtml;
                     document.getElementById('cuidador-list-container').innerHTML = cuidadorHtml;
