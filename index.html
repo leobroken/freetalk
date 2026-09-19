@@ -404,6 +404,15 @@
         const db = firebase.firestore();
         auth.useDeviceLanguage();
 
+        // Registo do Service Worker para suporte a PWA e segundo plano
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then((reg) => console.log('Service Worker registado:', reg.scope))
+                    .catch((err) => console.log('Erro no Service Worker:', err));
+            });
+        }
+
         let utilizadorAtual = null;
         let dadosUtilizador = null;
         let unsubscribeMedicamentos = null;
@@ -714,7 +723,6 @@
                         const isTomado = med.status === "Tomado";
                         let podeTomar = true;
 
-                        // Validação: O idoso só pode apertar se o horário atual for >= horário do remédio
                         if (horaAtualStr < med.horario) {
                             podeTomar = false;
                         }
@@ -731,7 +739,7 @@
                                         alertaUrgente: true,
                                         avisoEnviadoAoCuidador: true
                                     });
-                                }, 60000); // 1 minuto para escalar ao cuidador
+                                }, 60000);
                             }
                         }
 
@@ -868,7 +876,7 @@
                             db.collection('medicamentos').doc(id).update({ avisoEnviadoAoCuidador: false });
                         }
                     });
-                }, 300000); // Reativa o botão do cuidador em 5 minutos
+                }, 300000);
             });
         }
 
