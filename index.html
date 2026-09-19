@@ -102,6 +102,7 @@
             top: 5px;
         }
         #btn-logout { right: 0; background: var(--danger); }
+        #btn-alternar-visao { right: 65px; background: #0284c7; display: none; }
 
         .profile-card-container {
             display: flex;
@@ -198,6 +199,7 @@
 
     <div class="container">
         <header>
+            <button id="btn-alternar-visao" class="btn-acao-topo" onclick="alternarVisaoCuidador()">🔄 Ver Tela do Idoso</button>
             <button id="btn-logout" class="btn-acao-topo" style="display: none;" onclick="sairDaConta()">🚪 Sair</button>
             <h1>Free Talk</h1>
             <p id="subtitulo-topo">Gestão Compartilhada de Medicamentos</p>
@@ -268,7 +270,7 @@
             </div>
         </div>
 
-        <!-- ETAPA 3.1: SUB-MENU DO CUIDADOR (Novo ou Entrar com Código) -->
+        <!-- ETAPA 3.1: SUB-MENU DO CUIDADOR -->
         <div id="tela-cuidador-menu" class="card-box" style="display: none;">
             <h2>Área do Cuidador</h2>
             <p style="color: #64748b; font-size: 0.95rem;">Como deseja configurar o seu painel de cuidador?</p>
@@ -283,7 +285,7 @@
             <p style="margin-top: 15px;"><a href="#" onclick="voltarParaSelecaoPerfil()" style="color: var(--primary); font-weight: bold;">← Voltar</a></p>
         </div>
 
-        <!-- ETAPA 3.2: INSERIR CÓDIGO (Para Idoso ou Cuidador Secundário) -->
+        <!-- ETAPA 3.2: INSERIR CÓDIGO -->
         <div id="tela-pedir-codigo" class="card-box" style="display: none;">
             <h2 id="titulo-codigo-modal">Emparelhar com o Cuidador</h2>
             <p id="texto-codigo-modal" style="color: #64748b; font-size: 0.95rem;">Insira o código de vínculo fornecido:</p>
@@ -389,7 +391,9 @@
         let fotoBase64Global = "";
         let audioIntervalo = null;
         let vibracaoIntervalo = null;
-        let tipoVinculoAtual = ''; // 'idoso' ou 'cuidador_secundario'
+        let tipoVinculoAtual = '';
+        let visaoAtualCuidador = 'gestao'; // 'gestao' ou 'idoso'
+        let codigoVinculoAtivoGlobal = '';
 
         auth.onAuthStateChanged(async (user) => {
             if (user) {
@@ -401,6 +405,7 @@
                 dadosUtilizador = null;
                 if (unsubscribeMedicamentos) unsubscribeMedicamentos();
                 document.getElementById('btn-logout').style.display = 'none';
+                document.getElementById('btn-alternar-visao').style.display = 'none';
                 esconderTodasAsTelas();
                 document.getElementById('tela-login').style.display = 'block';
             }
@@ -571,24 +576,45 @@
             }
         }
 
+        function alternarVisaoCuidador() {
+            const perfilSalvo = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
+            if (perfilSalvo === 'idoso') return; // Se for conta dedicada de idoso, não alterna
+
+            if (visaoAtualCuidador === 'gestao') {
+                visaoAtualCuidador = 'idoso';
+                document.getElementById('btn-alternar-visao').innerText = '📋 Ver Painel de Gestão';
+                carregarPainelPrincipal('idoso_modo_cuidador', codigoVinculoAtivoGlobal);
+            } else {
+                visaoAtualCuidador = 'gestao';
+                document.getElementById('btn-alternar-visao').innerText = '🔄 Ver Tela do Idoso';
+                carregarPainelPrincipal('cuidador', codigoVinculoAtivoGlobal);
+            }
+        }
+
         function carregarPainelPrincipal(perfil, codigoVinculo = null) {
             esconderTodasAsTelas();
             document.getElementById('main-app').style.display = 'block';
+            codigoVinculoAtivoGlobal = codigoVinculo;
 
-            if (perfil === 'idoso') {
+            const perfilSalvo = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
+            if (perfilSalvo !== 'idoso') {
+                document.getElementById('btn-alternar-visao').style.display = 'block';
+            }
+
+            if (perfil === 'idoso' || perfil === 'idoso_modo_cuidador') {
                 document.getElementById('section-idoso').classList.add('active');
                 document.getElementById('section-cuidador').classList.remove('active');
-                document.getElementById('subtitulo-topo').innerText = `Área do Idoso • ${dadosUtilizador.nome}`;
-                escutarMedicamentos(codigoVinculo);
+                const sufixoModo = (perfil === 'idoso_modo_cuidador') ? ' (Modo Visualização)' : '';
+                document.getElementById('subtitulo-topo').innerText = `Área do Idoso${sufixoModo} • ${dadosUtilizador.nome}`;
+                escutarMedicamentos(codigoVinculo, perfil === 'idoso_modo_cuidador');
             } else {
                 document.getElementById('section-cuidador').classList.add('active');
                 document.getElementById('section-idoso').classList.remove('active');
                 document.getElementById('subtitulo-topo').innerText = `Painel de Gestão • ${dadosUtilizador.nome}`;
                 
-                // Se for cuidador principal, mostra o seu código. Se for secundário, mostra o código em que está inserido
                 const codigoExibicao = codigoVinculo || localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`) || 'FREE-1234';
                 document.getElementById('display-codigo-cuidador').innerText = codigoExibicao;
-                escutarMedicamentos(codigoExibicao);
+                escutarMedicamentos(codigoExibicao, false);
             }
         }
 
@@ -598,7 +624,7 @@
             alert("Código copiado para a área de transferência!");
         }
 
-        function escutarMedicamentos(codigoVinculo) {
+        function escutarMedicamentos(codigoVinculo, modoVisualizacaoCuidador = false) {
             if (unsubscribeMedicamentos) unsubscribeMedicamentos();
 
             unsubscribeMedicamentos = db.collection('medicamentos')
@@ -675,7 +701,8 @@
                     document.getElementById('idoso-meds-container').innerHTML = idosoHtml;
                     document.getElementById('cuidador-list-container').innerHTML = cuidadorHtml;
 
-                    if (dispararAlarme && localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`) === 'idoso') {
+                    const perfilLogado = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
+                    if (dispararAlarme && (perfilLogado === 'idoso' || (perfilLogado !== 'idoso' && visaoAtualCuidador === 'idoso'))) {
                         document.getElementById('texto-aviso-urgente').innerText = `O cuidador enviou um alerta urgente para tomar: ${nomeUrgente}!`;
                         document.getElementById('alerta-urgente-overlay').style.display = 'flex';
                         dispararAlarmeSonoroEContínuo();
