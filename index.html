@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Free Talk - Gestão Compartilhada de Medicamentos</title>
+    <!-- Configuração PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    
     <!-- Firebase SDK (App, Auth, Firestore, Messaging) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -392,7 +396,7 @@
         let audioIntervalo = null;
         let vibracaoIntervalo = null;
         let tipoVinculoAtual = '';
-        let visaoAtualCuidador = 'gestao'; // 'gestao' ou 'idoso'
+        let visaoAtualCuidador = 'gestao';
         let codigoVinculoAtivoGlobal = '';
 
         auth.onAuthStateChanged(async (user) => {
@@ -578,7 +582,7 @@
 
         function alternarVisaoCuidador() {
             const perfilSalvo = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
-            if (perfilSalvo === 'idoso') return; // Se for conta dedicada de idoso, não alterna
+            if (perfilSalvo === 'idoso') return;
 
             if (visaoAtualCuidador === 'gestao') {
                 visaoAtualCuidador = 'idoso';
