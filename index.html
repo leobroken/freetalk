@@ -153,7 +153,6 @@
             background: white;
         }
         
-        /* Botão estilizado para abrir a câmara */
         .btn-camera {
             background: #0284c7;
             color: white;
@@ -246,27 +245,33 @@
         <!-- ÁREA DO CUIDADOR -->
         <div id="section-cuidador" class="section">
             <h2>Gestão de Medicamentos</h2>
-            <p>Adicione novos remédios com foto tirada diretamente na câmara:</p>
+            <p>Adicione novos remédios configurando a duração e foto:</p>
             
             <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <h3>Cadastrar Novo Remédio</h3>
                 <div class="form-group">
                     <label>Nome do Remédio e Dosagem:</label>
-                    <input type="text" id="novo-nome" placeholder="Ex: Synthroid 88mcg">
+                    <input type="text" id="novo-nome" placeholder="Ex: Amoxicilina 500mg">
                 </div>
                 <div class="form-group">
                     <label>Horário:</label>
-                    <input type="text" id="novo-horario" placeholder="Ex: 08:00 (Jejum)">
+                    <input type="text" id="novo-horario" placeholder="Ex: 12:00 (Após o almoço)">
                 </div>
                 <div class="form-group">
                     <label>Tipo de Tratamento:</label>
-                    <select id="novo-continuo">
-                        <option value="sim">Repetir Todos os Dias (Contínuo)</option>
-                        <option value="nao">Uso Único / Apenas Hoje</option>
+                    <select id="tipo-tratamento" onchange="alternarDiasTratamento()">
+                        <option value="continuo">Uso Contínuo (Todo dia)</option>
+                        <option value="dias">Quantidade Específica de Dias</option>
                     </select>
                 </div>
                 
-                <!-- Botão dedicado para disparar a câmara do telemóvel -->
+                <!-- Campo de quantidade de dias (inicialmente oculto) -->
+                <div class="form-group" id="grupo-dias" style="display: none;">
+                    <label>Quantos dias vai tomar?</label>
+                    <input type="number" id="novo-dias" min="1" max="365" value="5" placeholder="Ex: 7">
+                </div>
+
+                <!-- Botão da Câmara -->
                 <div class="form-group">
                     <label>Registo Fotográfico:</label>
                     <input type="file" id="input-camera" accept="image/*" capture="environment" style="display: none;" onchange="mostrarPreview(this)">
@@ -306,7 +311,7 @@
 
         let fotoBase64Global = "";
 
-        // Relógio e Data em Tempo Real
+        // Relógio e Data
         function atualizarRelogio() {
             const agora = new Date();
             const horas = String(agora.getHours()).padStart(2, '0');
@@ -335,10 +340,20 @@
 
         function obterDataAtual() {
             const d = new Date();
-            return d.toISOString().split('T')[0];
+            return d.toISOString().split('T')[0]; // "YYYY-MM-DD"
         }
 
-        // Pré-visualização da foto tirada pela câmara
+        // Mostrar ou ocultar campo de dias com base na seleção
+        function alternarDiasTratamento() {
+            const tipo = document.getElementById('tipo-tratamento').value;
+            const grupoDias = document.getElementById('grupo-dias');
+            if (tipo === 'dias') {
+                grupoDias.style.display = 'block';
+            } else {
+                grupoDias.style.display = 'none';
+            }
+        }
+
         function mostrarPreview(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
@@ -353,15 +368,29 @@
             }
         }
 
-        // Adicionar Remédio
+        // Adicionar Remédio com Cálculo de Data de Término
         function adicionarRemedio() {
             const nome = document.getElementById('novo-nome').value.trim();
             const horario = document.getElementById('novo-horario').value.trim();
-            const continuo = document.getElementById('novo-continuo').value === 'sim';
-
+            const tipoTratamento = document.getElementById('tipo-tratamento').value;
+            
             if (!nome || !horario) {
                 alert("Por favor, preencha o nome e o horário do remédio.");
                 return;
+            }
+
+            let continuo = true;
+            let dataTermino = "";
+            const hojeStr = obterDataAtual();
+
+            if (tipoTratamento === 'dias') {
+                continuo = false;
+                const qtdDias = parseInt(document.getElementById('novo-dias').value) || 1;
+                
+                // Calcula a data final somando os dias a partir de hoje
+                let dataFimObj = new Date();
+                dataFimObj.setDate(dataFimObj.getDate() + qtdDias);
+                dataTermino = dataFimObj.toISOString().split('T')[0];
             }
 
             const fotoPadrao = 'https://cdn-icons-png.flaticon.com/512/883/883397.png';
@@ -371,14 +400,17 @@
                 nome: nome,
                 horario: horario,
                 continuo: continuo,
+                dataTermino: dataTermino,
                 foto: fotoFinal,
                 status: "Pendente",
                 horaTomado: "",
-                dataAtualizacao: obterDataAtual()
+                dataAtualizacao: hojeStr
             }).then(() => {
-                // Limpar campos
+                // Limpar formulário
                 document.getElementById('novo-nome').value = '';
                 document.getElementById('novo-horario').value = '';
+                document.getElementById('tipo-tratamento').value = 'continuo';
+                document.getElementById('grupo-dias').style.display = 'none';
                 document.getElementById('input-camera').value = '';
                 fotoBase64Global = "";
                 document.getElementById('preview-img').style.display = 'none';
@@ -407,7 +439,7 @@
             });
         }
 
-        // Sincronização em Tempo Real e Reset Diário
+        // Sincronização, Reset Diário e Validação de Término de Tratamento por Dias
         db.collection("medicamentos").onSnapshot((querySnapshot) => {
             let idosoHtml = "";
             let cuidadorHtml = "";
@@ -421,6 +453,14 @@
                     const med = doc.data();
                     const id = doc.id;
 
+                    // 1. Verificar se o tratamento com dias específicos já expirou
+                    if (!med.continuo && med.dataTermino && hoje > med.dataTermino) {
+                        // O prazo terminou, apaga automaticamente do banco de dados
+                        db.collection("medicamentos").doc(id).delete();
+                        return;
+                    }
+
+                    // 2. Reset diário para remédios contínuos
                     if (med.continuo && med.status === "Tomado" && med.dataAtualizacao !== hoje) {
                         db.collection("medicamentos").doc(id).update({
                             status: "Pendente",
@@ -431,12 +471,14 @@
                     }
 
                     const isTomado = med.status === "Tomado";
+                    
+                    let infoTratamento = med.continuo ? '• <i>(Uso Contínuo)</i>' : `• <i>(Até ${med.dataTermino.split('-').reverse().join('/')})</i>`;
 
                     idosoHtml += `
                         <div class="med-card-idoso">
                             <img src="${med.foto}" alt="${med.nome}" class="med-img">
                             <h3>${med.nome}</h3>
-                            <p>Horário: ${med.horario} ${med.continuo ? '• <i>(Uso Contínuo)</i>' : ''}</p>
+                            <p>Horário: ${med.horario} <br>${infoTratamento}</p>
                             <button id="btn-${id}" class="big-btn ${isTomado ? 'taken' : ''}" 
                                     onclick="tomarRemedio('${id}')" 
                                     ${isTomado ? 'disabled' : ''}>
@@ -449,10 +491,13 @@
                         <div class="caregiver-item">
                             <div>
                                 <img src="${med.foto}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 8px;">
-                                <strong>${med.nome}</strong> (${med.horario}) ${med.continuo ? '🔄 [Contínuo]' : ''}<br>
-                                <span style="margin-left: 48px;">Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
-                                    ${isTomado ? 'Tomado às ' + med.horaTomado + ' ✅' : '⏳ Pendente'}
-                                </span></span>
+                                <strong>${med.nome}</strong> (${med.horario})<br>
+                                <span style="margin-left: 48px; font-size: 0.9rem; color: #475569;">
+                                    ${med.continuo ? '🔄 [Uso Contínuo]' : '⏳ [Até ' + med.dataTermino.split('-').reverse().join('/') + ']'} | 
+                                    Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
+                                        ${isTomado ? 'Tomado às ' + med.horaTomado + ' ✅' : 'Pendente'}
+                                    </span>
+                                </span>
                             </div>
                             <button class="btn-delete" onclick="deletarRemedio('${id}')">Excluir</button>
                         </div>
