@@ -36,7 +36,6 @@
         }
         h1 { color: var(--primary); margin-bottom: 5px; }
 
-        /* Estilos de Autenticação e Telas */
         .card-box {
             background: white;
             padding: 25px;
@@ -104,18 +103,17 @@
         }
         #btn-logout { right: 0; background: var(--danger); }
 
-        /* Perfis e Painéis */
         .profile-card-container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
             width: 100%;
             max-width: 350px;
             margin: 20px auto 0 auto;
         }
         .btn-profile {
-            padding: 25px;
-            font-size: 1.3rem;
+            padding: 22px;
+            font-size: 1.2rem;
             font-weight: bold;
             color: white;
             border: none;
@@ -125,6 +123,7 @@
         }
         .btn-profile.idoso { background-color: var(--primary); }
         .btn-profile.cuidador { background-color: var(--success); }
+        .btn-profile.secundario { background-color: #0284c7; }
 
         .clock-container {
             background: #1e293b;
@@ -204,7 +203,7 @@
             <p id="subtitulo-topo">Gestão Compartilhada de Medicamentos</p>
         </header>
 
-        <!-- ETAPA 1: LOGIN / AUTENTICAÇÃO -->
+        <!-- ETAPA 1: LOGIN -->
         <div id="tela-login" class="card-box" style="display: none;">
             <h2>Acessar Conta</h2>
             <p style="color: #64748b; font-size: 0.95rem;">Entre com a sua conta Google ou E-mail para continuar.</p>
@@ -240,7 +239,7 @@
             <p style="margin-top: 15px; font-size: 0.9rem;"><a href="#" onclick="alternarTelaRegisto(false)" style="color: var(--primary); font-weight: bold;">← Voltar ao Login</a></p>
         </div>
 
-        <!-- ETAPA 2: CADASTRO COMPLEMENTAR (Nome e Data de Nascimento) -->
+        <!-- ETAPA 2: CADASTRO COMPLEMENTAR -->
         <div id="tela-cadastro-dados" class="card-box" style="display: none;">
             <h2>Complete o seu Cadastro</h2>
             <p style="color: #64748b; font-size: 0.95rem;">Precisamos do seu nome e data de nascimento para identificação.</p>
@@ -255,7 +254,7 @@
             <button class="btn-main" onclick="salvarDadosUtilizador()">Avançar</button>
         </div>
 
-        <!-- ETAPA 3: SELEÇÃO DE PERFIL (Idoso ou Cuidador) -->
+        <!-- ETAPA 3: SELEÇÃO DE PERFIL -->
         <div id="tela-perfil-selector" class="card-box" style="display: none;">
             <h2>Qual é o seu papel?</h2>
             <p style="color: #64748b; font-size: 0.95rem;">Escolha como vai utilizar a aplicação neste dispositivo:</p>
@@ -263,24 +262,40 @@
                 <button class="btn-profile idoso" onclick="escolherPerfil('idoso')">
                     👵 Sou Idoso(a)
                 </button>
-                <button class="btn-profile cuidador" onclick="escolherPerfil('cuidador')">
+                <button class="btn-profile cuidador" onclick="escolherPerfil('cuidador_menu')">
                     📋 Sou Cuidador(a)
                 </button>
             </div>
         </div>
 
-        <!-- ETAPA 3.1: PEDIR CÓDIGO DO CUIDADOR (Se for Idoso e não estiver vinculado) -->
-        <div id="tela-pedir-codigo" class="card-box" style="display: none;">
-            <h2>Emparelhar com o Cuidador</h2>
-            <p style="color: #64748b; font-size: 0.95rem;">Insira o código de vínculo fornecido pelo seu cuidador para conectar os perfis:</p>
-            <div class="form-group">
-                <label>Código do Cuidador:</label>
-                <input type="text" id="input-codigo-vinculo" placeholder="Ex: LORENA-8492" style="text-transform: uppercase; text-align: center; font-size: 1.3rem; letter-spacing: 2px;">
+        <!-- ETAPA 3.1: SUB-MENU DO CUIDADOR (Novo ou Entrar com Código) -->
+        <div id="tela-cuidador-menu" class="card-box" style="display: none;">
+            <h2>Área do Cuidador</h2>
+            <p style="color: #64748b; font-size: 0.95rem;">Como deseja configurar o seu painel de cuidador?</p>
+            <div class="profile-card-container">
+                <button class="btn-profile cuidador" onclick="configurarCuidadorNovo()">
+                    ➕ Cuidador Novo (Criar Nova Rede)
+                </button>
+                <button class="btn-profile secundario" onclick="mostrarTelaPedirCodigoCuidador()">
+                    🔗 Entrar com Código (Já tenho um código)
+                </button>
             </div>
-            <button class="btn-main" onclick="vincularIdosoAoCuidador()">Conectar Vínculo</button>
+            <p style="margin-top: 15px;"><a href="#" onclick="voltarParaSelecaoPerfil()" style="color: var(--primary); font-weight: bold;">← Voltar</a></p>
         </div>
 
-        <!-- ETAPA 4: PAINEL PRINCIPAL (Idoso ou Cuidador) -->
+        <!-- ETAPA 3.2: INSERIR CÓDIGO (Para Idoso ou Cuidador Secundário) -->
+        <div id="tela-pedir-codigo" class="card-box" style="display: none;">
+            <h2 id="titulo-codigo-modal">Emparelhar com o Cuidador</h2>
+            <p id="texto-codigo-modal" style="color: #64748b; font-size: 0.95rem;">Insira o código de vínculo fornecido:</p>
+            <div class="form-group">
+                <label>Código de Vínculo:</label>
+                <input type="text" id="input-codigo-vinculo" placeholder="Ex: LORENA-8492" style="text-transform: uppercase; text-align: center; font-size: 1.3rem; letter-spacing: 2px;">
+            </div>
+            <button class="btn-main" onclick="vincularComCodigo()">Conectar Vínculo</button>
+            <p style="margin-top: 15px;"><a href="#" onclick="voltarParaMenuCuidador()" style="color: var(--primary); font-weight: bold;">← Voltar</a></p>
+        </div>
+
+        <!-- ETAPA 4: PAINEL PRINCIPAL -->
         <div id="main-app" class="container" style="display: none;">
             <!-- ÁREA DO IDOSO -->
             <div id="section-idoso" class="section">
@@ -300,9 +315,8 @@
             <div id="section-cuidador" class="section">
                 <h2>Gestão de Medicamentos</h2>
                 
-                <!-- Caixa do Código de Vínculo do Cuidador -->
                 <div class="codigo-box">
-                    <span>Código de Vínculo do Idoso (Partilhe com outros cuidadores ou com o idoso):</span>
+                    <span>Código de Vínculo (Partilhe com outros cuidadores ou com o idoso):</span>
                     <div id="display-codigo-cuidador" class="codigo-destaque">A gerar...</div>
                     <button class="btn-main" style="padding: 8px; font-size: 0.9rem; margin-top: 5px;" onclick="copiarCodigoCuidador()">📋 Copiar Código</button>
                 </div>
@@ -375,6 +389,7 @@
         let fotoBase64Global = "";
         let audioIntervalo = null;
         let vibracaoIntervalo = null;
+        let tipoVinculoAtual = ''; // 'idoso' ou 'cuidador_secundario'
 
         auth.onAuthStateChanged(async (user) => {
             if (user) {
@@ -392,7 +407,7 @@
         });
 
         function esconderTodasAsTelas() {
-            ['tela-login', 'tela-registo', 'tela-cadastro-dados', 'tela-perfil-selector', 'tela-pedir-codigo', 'main-app'].forEach(id => {
+            ['tela-login', 'tela-registo', 'tela-cadastro-dados', 'tela-perfil-selector', 'tela-cuidador-menu', 'tela-pedir-codigo', 'main-app'].forEach(id => {
                 document.getElementById(id).style.display = 'none';
             });
         }
@@ -459,29 +474,54 @@
             } else {
                 if (perfilSalvo === 'idoso') {
                     verificarVinculoIdoso();
+                } else if (perfilSalvo === 'cuidador_secundario') {
+                    const codigo = localStorage.getItem(`freetalk_vinculo_cuidador_${utilizadorAtual.uid}`);
+                    if (!codigo) {
+                        mostrarTelaPedirCodigoCuidador();
+                    } else {
+                        carregarPainelPrincipal('cuidador', codigo);
+                    }
                 } else {
                     carregarPainelPrincipal('cuidador');
                 }
             }
         }
 
-        async function escolherPerfil(perfil) {
-            localStorage.setItem(`freetalk_perfil_${utilizadorAtual.uid}`, perfil);
-            
-            if (perfil === 'cuidador') {
-                let codigo = localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`);
-                if (!codigo) {
-                    codigo = 'FREE-' + Math.floor(1000 + Math.random() * 9000);
-                    localStorage.setItem(`freetalk_codigo_${utilizadorAtual.uid}`, codigo);
-                    await db.collection('vinculos').doc(codigo).set({ cuidadorUid: utilizadorAtual.uid });
-                }
-                carregarPainelPrincipal('cuidador');
+        function escolherPerfil(perfil) {
+            if (perfil === 'cuidador_menu') {
+                esconderTodasAsTelas();
+                document.getElementById('tela-cuidador-menu').style.display = 'block';
             } else {
+                localStorage.setItem(`freetalk_perfil_${utilizadorAtual.uid}`, 'idoso');
                 verificarVinculoIdoso();
             }
         }
 
-        async function verificarVinculoIdoso() {
+        async function configurarCuidadorNovo() {
+            localStorage.setItem(`freetalk_perfil_${utilizadorAtual.uid}`, 'cuidador');
+            
+            let codigo = localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`);
+            if (!codigo) {
+                codigo = 'FREE-' + Math.floor(1000 + Math.random() * 9000);
+                localStorage.setItem(`freetalk_codigo_${utilizadorAtual.uid}`, codigo);
+                await db.collection('vinculos').doc(codigo).set({ cuidadorUid: utilizadorAtual.uid });
+            }
+            carregarPainelPrincipal('cuidador', codigo);
+        }
+
+        function mostrarTelaPedirCodigoCuidador() {
+            tipoVinculoAtual = 'cuidador_secundario';
+            document.getElementById('titulo-codigo-modal').innerText = "Entrar com Código do Cuidador";
+            document.getElementById('texto-codigo-modal').innerText = "Insira o código partilhado pelo outro cuidador para gerir a mesma rede:";
+            esconderTodasAsTelas();
+            document.getElementById('tela-pedir-codigo').style.display = 'block';
+        }
+
+        function verificarVinculoIdoso() {
+            tipoVinculoAtual = 'idoso';
+            document.getElementById('titulo-codigo-modal').innerText = "Emparelhar com o Cuidador";
+            document.getElementById('texto-codigo-modal').innerText = "Insira o código de vínculo fornecido pelo seu cuidador:";
+            
             const codigoVinculado = localStorage.getItem(`freetalk_vinculo_idoso_${utilizadorAtual.uid}`);
             if (!codigoVinculado) {
                 esconderTodasAsTelas();
@@ -491,22 +531,44 @@
             }
         }
 
-        async function vincularIdosoAoCuidador() {
+        async function vincularComCodigo() {
             const codigo = document.getElementById('input-codigo-vinculo').value.trim().toUpperCase();
             if (!codigo) {
-                alert("Insira o código do cuidador.");
+                alert("Insira o código.");
                 return;
             }
 
             const vinculoDoc = await db.collection('vinculos').doc(codigo).get();
             if (!vinculoDoc.exists) {
-                alert("Código de cuidador inválido ou não encontrado. Verifique com o cuidador.");
+                alert("Código inválido ou não encontrado. Verifique com o cuidador responsável.");
                 return;
             }
 
-            localStorage.setItem(`freetalk_vinculo_idoso_${utilizadorAtual.uid}`, codigo);
-            alert("Vínculo estabelecido com sucesso!");
-            carregarPainelPrincipal('idoso', codigo);
+            if (tipoVinculoAtual === 'cuidador_secundario') {
+                localStorage.setItem(`freetalk_perfil_${utilizadorAtual.uid}`, 'cuidador_secundario');
+                localStorage.setItem(`freetalk_vinculo_cuidador_${utilizadorAtual.uid}`, codigo);
+                alert("Acesso vinculado com sucesso à rede do cuidador!");
+                carregarPainelPrincipal('cuidador', codigo);
+            } else {
+                localStorage.setItem(`freetalk_vinculo_idoso_${utilizadorAtual.uid}`, codigo);
+                alert("Vínculo estabelecido com sucesso!");
+                carregarPainelPrincipal('idoso', codigo);
+            }
+        }
+
+        function voltarParaSelecaoPerfil() {
+            esconderTodasAsTelas();
+            document.getElementById('tela-perfil-selector').style.display = 'block';
+        }
+
+        function voltarParaMenuCuidador() {
+            const perfilSalvo = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
+            if (perfilSalvo === 'idoso') {
+                voltarParaSelecaoPerfil();
+            } else {
+                esconderTodasAsTelas();
+                document.getElementById('tela-cuidador-menu').style.display = 'block';
+            }
         }
 
         function carregarPainelPrincipal(perfil, codigoVinculo = null) {
@@ -523,9 +585,10 @@
                 document.getElementById('section-idoso').classList.remove('active');
                 document.getElementById('subtitulo-topo').innerText = `Painel de Gestão • ${dadosUtilizador.nome}`;
                 
-                const codigo = localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`) || 'FREE-1234';
-                document.getElementById('display-codigo-cuidador').innerText = codigo;
-                escutarMedicamentos(codigo);
+                // Se for cuidador principal, mostra o seu código. Se for secundário, mostra o código em que está inserido
+                const codigoExibicao = codigoVinculo || localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`) || 'FREE-1234';
+                document.getElementById('display-codigo-cuidador').innerText = codigoExibicao;
+                escutarMedicamentos(codigoExibicao);
             }
         }
 
@@ -661,7 +724,7 @@
                 dataTermino = dataFimObj.toISOString().split('T')[0];
             }
 
-            const codigoCuidador = localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`);
+            const codigoCuidador = document.getElementById('display-codigo-cuidador').innerText;
             const fotoPadrao = 'https://cdn-icons-png.flaticon.com/512/883/883397.png';
 
             db.collection('medicamentos').add({
