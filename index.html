@@ -189,6 +189,8 @@
         }
         .btn-alertar { background: var(--danger); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
         .btn-alertar.avisado { background: #64748b; }
+        .btn-alertar:disabled { background: #cbd5e1 !important; color: #64748b; cursor: not-allowed; }
+        
         .btn-delete { background: #64748b; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
 
         .codigo-box {
@@ -207,11 +209,11 @@
     </style>
 </head>
 <body>
-    <!-- Ecrã de Alerta Urgente (Sobreposição Total Máxima) -->
+    <!-- Ecrã de Alerta Urgente (Sobreposição Total Máxima com Botão Piscando) -->
     <div id="alerta-urgente-overlay">
         <h2>🚨 HORA DO REMÉDIO! 🚨</h2>
         <p id="texto-aviso-urgente" style="font-size: 1.3rem; margin-bottom: 25px;">Está na hora de tomar o seu medicamento.</p>
-        <button class="big-btn" style="background: white; color: var(--danger); max-width: 400px; font-size: 1.4rem;" onclick="pararAlarmeGeral()">
+        <button class="big-btn piscando" style="background: white; color: var(--danger); max-width: 400px; font-size: 1.4rem;" onclick="pararAlarmeGeral()">
             JÁ TOMEI O REMÉDIO ✔️
         </button>
     </div>
@@ -404,7 +406,6 @@
         const db = firebase.firestore();
         auth.useDeviceLanguage();
 
-        // Registo do Service Worker para suporte a PWA e segundo plano
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
@@ -417,14 +418,14 @@
         let dadosUtilizador = null;
         let unsubscribeMedicamentos = null;
         let fotoBase64Global = "";
-        let audioIntervalo = null;
-        let vibracaoIntervalo = null;
+        let audioIntervaloID = null;
+        let cicloIntervaloID = null;
+        let vibracaoIntervaloID = null;
         let tipoVinculoAtual = '';
         let visaoAtualCuidador = 'gestao';
         let codigoVinculoAtivoGlobal = '';
         let timeoutAlarmeIdoso = null;
 
-        // Relógio Dinâmico Global
         setInterval(() => {
             const agora = new Date();
             const horas = agora.toLocaleTimeString('pt-BR');
@@ -667,6 +668,11 @@
             alert("Código copiado para a área de transferência!");
         }
 
+        function converterHorarioParaMinutos(horaStr) {
+            const [h, m] = horaStr.split(':').map(Number);
+            return h * 60 + m;
+        }
+
         function escutarMedicamentos(codigoVinculo, modoVisualizacaoCuidador = false) {
             if (unsubscribeMedicamentos) unsubscribeMedicamentos();
 
@@ -716,24 +722,27 @@
                     });
 
                     const agoraData = new Date();
+                    const horaAtualMinutos = agoraData.getHours() * 60 + agoraData.getMinutes();
                     const horaAtualStr = agoraData.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
                     let idosoHtml = "";
 
                     listaMedicamentos.forEach((med) => {
                         const isTomado = med.status === "Tomado";
+                        const horarioRemedioMinutos = converterHorarioParaMinutos(med.horario);
+                        
                         let podeTomar = true;
-
-                        if (horaAtualStr < med.horario) {
+                        if (horaAtualMinutos < horarioRemedioMinutos && !med.alertaUrgente) {
                             podeTomar = false;
                         }
 
                         let classeBotaoIdoso = "big-btn";
-                        if (!isTomado && horaAtualStr >= med.horario) {
+                        if (!isTomado && (horaAtualMinutos >= horarioRemedioMinutos || med.alertaUrgente)) {
                             dispararAlarmeIdoso = true;
                             nomeUrgente = med.nome;
                             classeBotaoIdoso += " piscando";
 
-                            if (!timeoutAlarmeIdoso) {
+                            // Escala automática para alarme urgente se passar de 1 minuto do horário
+                            if (horaAtualMinutos >= horarioRemedioMinutos && !timeoutAlarmeIdoso && !med.alertaUrgente) {
                                 timeoutAlarmeIdoso = setTimeout(() => {
                                     db.collection('medicamentos').doc(med.id).update({
                                         alertaUrgente: true,
@@ -745,18 +754,32 @@
 
                         let infoTratamento = med.continuo ? '• <i>(Uso Contínuo)</i>' : `• <i>(Até ${med.dataTermino.split('-').reverse().join('/')})</i>`;
 
+                        let avisoAbaixoHtml = "";
+                        if (!isTomado && !podeTomar) {
+                            avisoAbaixoHtml = `<p style="color: var(--warning); font-weight: bold; font-size: 0.95rem; margin-top: 10px;">⏳ Aguarde o horário (${med.horario}) para tomar</p>`;
+                        }
+
                         idosoHtml += `
                             <div class="med-card-idoso" style="${isTomado ? 'opacity: 0.75; background: #e2e8f0;' : ''}">
                                 <img src="${med.foto}" alt="${med.nome}" class="med-img">
                                 <h3>${med.nome}</h3>
                                 <p>Horário: ${med.horario} <br>${infoTratamento}</p>
                                 <button class="${classeBotaoIdoso} ${isTomado ? 'taken' : ''}" onclick="tomarRemedio('${med.id}')" ${isTomado || !podeTomar ? 'disabled' : ''}>
-                                    ${isTomado ? 'REMÉDIO JÁ TOMADO HOJE ✔️' : (!podeTomar ? `AGUARDE (Horário: ${med.horario})` : 'JÁ TOMEI O REMÉDIO')}
+                                    ${isTomado ? 'REMÉDIO JÁ TOMADO HOJE ✔️' : 'JÁ TOMEI O REMÉDIO'}
                                 </button>
+                                ${avisoAbaixoHtml}
                             </div>
                         `;
 
-                        const btnAvisarTexto = med.avisoEnviadoAoCuidador ? 'IDOSO AVISADO ✔️' : '🚨 AVISAR IDOSO';
+                        // Regra: O cuidador só pode enviar o aviso APÓS 5 minutos do horário ter passado
+                        const minutosPassados = horaAtualMinutos - horarioRemedioMinutos;
+                        const podeCuidadorAvisar = !isTomado && minutosPassados >= 5;
+                        
+                        let btnAvisarTexto = med.avisoEnviadoAoCuidador ? 'IDOSO AVISADO ✔️' : '🚨 AVISAR IDOSO';
+                        if (!podeCuidadorAvisar && !isTomado) {
+                            btnAvisarTexto = `DISPONÍVEL EM ${5 - minutosPassados} MIN`;
+                        }
+
                         const btnAvisarClasse = med.avisoEnviadoAoCuidador ? 'btn-alertar avisado' : 'btn-alertar';
 
                         cuidadorHtml += `
@@ -771,7 +794,7 @@
                                     </span>
                                 </div>
                                 <div style="display: flex; gap: 5px;">
-                                    ${!isTomado ? `<button class="${btnAvisarClasse}" onclick="avisarIdosoManual('${med.id}', '${med.nome}')">${btnAvisarTexto}</button>` : ''}
+                                    ${!isTomado ? `<button class="${btnAvisarClasse}" onclick="avisarIdosoManual('${med.id}', '${med.nome}')" ${!podeCuidadorAvisar ? 'disabled' : ''}>${btnAvisarTexto}</button>` : ''}
                                     <button class="btn-delete" onclick="deletarRemedio('${med.id}')">Excluir</button>
                                 </div>
                             </div>
@@ -785,7 +808,7 @@
                     if (dispararAlarmeIdoso && (perfilLogado === 'idoso' || (perfilLogado !== 'idoso' && visaoAtualCuidador === 'idoso'))) {
                         document.getElementById('texto-aviso-urgente').innerText = `Está na hora de tomar: ${nomeUrgente}!`;
                         document.getElementById('alerta-urgente-overlay').style.display = 'flex';
-                        dispararAlarmeSonoroEContínuo();
+                        iniciarCicloAlarme20s();
                     }
                 });
         }
@@ -893,34 +916,59 @@
             });
         }
 
-        function dispararAlarmeSonoroEContínuo() {
-            pararAlarmeGeral();
-            if (navigator.vibrate) {
-                navigator.vibrate([1000, 500, 1000, 500]);
-                vibracaoIntervalo = setInterval(() => { navigator.vibrate([1000, 500]); }, 1500);
-            }
-            try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                audioIntervalo = setInterval(() => {
-                    if (audioCtx.state === 'suspended') { audioCtx.resume(); }
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-                    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 0.4);
-                }, 800);
-            } catch (e) {
-                console.log("Áudio bloqueado:", e);
-            }
+        // CICLO DE ALARME: 20 segundos tocando, 20 segundos de pausa, sucessivamente
+        function iniciarCicloAlarme20s() {
+            if (cicloIntervaloID) return; // Evita sobreposição de ciclos
+
+            const executarSomEVibracao = () => {
+                if (navigator.vibrate) {
+                    navigator.vibrate([1000, 500, 1000, 500]);
+                    vibracaoIntervaloID = setInterval(() => { navigator.vibrate([1000, 500]); }, 1500);
+                }
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    audioIntervaloID = setInterval(() => {
+                        if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start();
+                        osc.stop(audioCtx.currentTime + 0.4);
+                    }, 800);
+                } catch (e) {
+                    console.log("Áudio bloqueado:", e);
+                }
+            };
+
+            const pararSomEVibracao = () => {
+                if (audioIntervaloID) { clearInterval(audioIntervaloID); audioIntervaloID = null; }
+                if (vibracaoIntervaloID) { clearInterval(vibracaoIntervaloID); vibracaoIntervaloID = null; }
+                if (navigator.vibrate) { navigator.vibrate(0); }
+            };
+
+            // Inicia tocando imediatamente os primeiros 20 segundos
+            executarSomEVibracao();
+
+            // Agenda o ciclo alternado: 20s tocando / 20s pausado
+            cicloIntervaloID = setInterval(() => {
+                pararSomEVibracao();
+                // Pausa por 20 segundos e torna a tocar
+                setTimeout(() => {
+                    if (document.getElementById('alerta-urgente-overlay').style.display === 'flex') {
+                        executarSomEVibracao();
+                    }
+                }, 20000);
+            }, 40000); // A cada 40 segundos reinicia o bloco de toque
         }
 
         function pararAlarmeGeral() {
-            if (audioIntervalo) { clearInterval(audioIntervalo); audioIntervalo = null; }
-            if (vibracaoIntervalo) { clearInterval(vibracaoIntervalo); vibracaoIntervalo = null; }
+            if (audioIntervaloID) { clearInterval(audioIntervaloID); audioIntervaloID = null; }
+            if (vibracaoIntervaloID) { clearInterval(vibracaoIntervaloID); vibracaoIntervaloID = null; }
+            if (cicloIntervaloID) { clearInterval(cicloIntervaloID); cicloIntervaloID = null; }
             if (navigator.vibrate) { navigator.vibrate(0); }
             document.getElementById('alerta-urgente-overlay').style.display = 'none';
         }
