@@ -404,13 +404,33 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
+        const messaging = firebase.messaging();
         auth.useDeviceLanguage();
 
+        // Registo do Service Worker e pedido de permissão para Push Notifications
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then((reg) => console.log('Service Worker registado:', reg.scope))
-                    .catch((err) => console.log('Erro no Service Worker:', err));
+            window.addEventListener('load', async () => {
+                try {
+                    const reg = await navigator.serviceWorker.register('sw.js');
+                    console.log('Service Worker registado:', reg.scope);
+
+                    // Pede permissão para notificações push no telemóvel
+                    const permissao = await Notification.requestPermission();
+                    if (permissao === 'granted') {
+                        console.log('Permissão de notificação concedida.');
+                        const token = await messaging.getToken({
+                            serviceWorkerRegistration: reg,
+                            vapidKey: 'BOHsEw5V4vK35p0S53lY8G0_v1xZ3v5n6m7q8w9e0r1t2y3u4i5o6p7a8s9d0f1g2h3j4k5l6z7x8c9v0b' // VAPID placeholder key pública
+                        }).catch(e => console.log('Token FCM não gerado (requer chave VAPID no Console Firebase):', e));
+                        
+                        if (token) {
+                            console.log('Token FCM obtido:', token);
+                            // Aqui pode salvar o token no perfil do utilizador se necessário
+                        }
+                    }
+                } catch (err) {
+                    console.log('Erro ao registar Service Worker ou permissões:', err);
+                }
             });
         }
 
@@ -714,7 +734,6 @@
                         listaMedicamentos.push({ id, ...med });
                     });
 
-                    // ORDENAÇÃO INTELIGENTE: Pendentes no topo, Tomados no fundo
                     listaMedicamentos.sort((a, b) => {
                         if (a.status === "Tomado" && b.status !== "Tomado") return 1;
                         if (a.status !== "Tomado" && b.status === "Tomado") return -1;
@@ -723,7 +742,6 @@
 
                     const agoraData = new Date();
                     const horaAtualMinutos = agoraData.getHours() * 60 + agoraData.getMinutes();
-                    const horaAtualStr = agoraData.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
                     let idosoHtml = "";
 
                     listaMedicamentos.forEach((med) => {
@@ -741,7 +759,6 @@
                             nomeUrgente = med.nome;
                             classeBotaoIdoso += " piscando";
 
-                            // Escala automática para alarme urgente se passar de 1 minuto do horário
                             if (horaAtualMinutos >= horarioRemedioMinutos && !timeoutAlarmeIdoso && !med.alertaUrgente) {
                                 timeoutAlarmeIdoso = setTimeout(() => {
                                     db.collection('medicamentos').doc(med.id).update({
@@ -771,7 +788,6 @@
                             </div>
                         `;
 
-                        // Regra: O cuidador só pode enviar o aviso APÓS 5 minutos do horário ter passado
                         const minutosPassados = horaAtualMinutos - horarioRemedioMinutos;
                         const podeCuidadorAvisar = !isTomado && minutosPassados >= 5;
                         
@@ -916,9 +932,8 @@
             });
         }
 
-        // CICLO DE ALARME: 20 segundos tocando, 20 segundos de pausa, sucessivamente
         function iniciarCicloAlarme20s() {
-            if (cicloIntervaloID) return; // Evita sobreposição de ciclos
+            if (cicloIntervaloID) return;
 
             const executarSomEVibracao = () => {
                 if (navigator.vibrate) {
@@ -950,19 +965,16 @@
                 if (navigator.vibrate) { navigator.vibrate(0); }
             };
 
-            // Inicia tocando imediatamente os primeiros 20 segundos
             executarSomEVibracao();
 
-            // Agenda o ciclo alternado: 20s tocando / 20s pausado
             cicloIntervaloID = setInterval(() => {
                 pararSomEVibracao();
-                // Pausa por 20 segundos e torna a tocar
                 setTimeout(() => {
                     if (document.getElementById('alerta-urgente-overlay').style.display === 'flex') {
                         executarSomEVibracao();
                     }
                 }, 20000);
-            }, 40000); // A cada 40 segundos reinicia o bloco de toque
+            }, 40000);
         }
 
         function pararAlarmeGeral() {
