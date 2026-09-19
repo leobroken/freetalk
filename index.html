@@ -12,6 +12,7 @@
             --primary: #2563eb;
             --success: #16a34a;
             --warning: #ca8a04;
+            --danger: #dc2626;
             --bg: #f8fafc;
             --text: #1e293b;
         }
@@ -32,7 +33,7 @@
         }
         h1 { color: var(--primary); margin-bottom: 5px; }
         
-        /* Estilo do Relógio e Data para o Idoso */
+        /* Relógio e Data */
         .clock-container {
             background: #1e293b;
             color: white;
@@ -84,6 +85,8 @@
         .section.active {
             display: block;
         }
+        
+        /* Cards de Medicamentos */
         .med-card-idoso {
             background: #f1f5f9;
             border-radius: 12px;
@@ -91,6 +94,18 @@
             margin-bottom: 20px;
             text-align: center;
             border: 2px solid #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .med-img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 3px solid var(--primary);
+            margin-bottom: 10px;
+            background: #e2e8f0;
         }
         .med-card-idoso h3 {
             font-size: 1.5rem;
@@ -104,7 +119,7 @@
         .big-btn {
             width: 100%;
             padding: 25px;
-            font-size: 1.4rem;
+            font-size: 1.3rem;
             font-weight: bold;
             color: white;
             background-color: var(--warning);
@@ -118,12 +133,53 @@
             background-color: var(--success);
             cursor: not-allowed;
         }
-        .caregiver-log {
+
+        /* Formulário de Cadastro do Cuidador */
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        .btn-add {
+            background: var(--success);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+        }
+        .caregiver-item {
             background: #f8fafc;
             padding: 15px;
             border-radius: 8px;
             margin-top: 10px;
             border-left: 5px solid var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-delete {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -141,49 +197,52 @@
 
         <!-- ÁREA DO IDOSO -->
         <div id="section-idoso" class="section active">
-            <!-- Relógio e Data Bem Visíveis -->
             <div class="clock-container">
                 <div id="live-clock">00:00:00</div>
                 <div id="live-date">Carregando data...</div>
             </div>
 
             <h2>Seus Remédios de Hoje</h2>
-            <p id="instruction-text">Toque no botão abaixo assim que tomar o seu remédio:</p>
+            <p>Toque no botão abaixo assim que tomar o seu remédio:</p>
 
-            <div class="med-card-idoso">
-                <h3>Synthroid 88mcg</h3>
-                <p>Horário: 08:00 (Jejum)</p>
-                <button id="btn-med-1" class="big-btn" onclick="tomarRemedio('med1', 'Synthroid 88mcg')">
-                    HORA DE TOMAR O REMÉDIO!
-                </button>
-            </div>
-
-            <div class="med-card-idoso">
-                <h3>Bromidrato de Galantamina 24mg</h3>
-                <p>Horário: 08:00 (Após o café)</p>
-                <button id="btn-med-2" class="big-btn" onclick="tomarRemedio('med2', 'Bromidrato de Galantamina 24mg')">
-                    HORA DE TOMAR O REMÉDIO!
-                </button>
+            <!-- Lista Dinâmica de Remédios do Idoso -->
+            <div id="idoso-meds-container">
+                <p style="text-align: center; color: #64748b;">A carregar medicamentos...</p>
             </div>
         </div>
 
         <!-- ÁREA DO CUIDADOR -->
         <div id="section-cuidador" class="section">
-            <h2>Acompanhamento do Cuidador</h2>
-            <p>Status em tempo real sincronizado via Nuvem:</p>
-            <div id="log-container">
-                <div class="caregiver-log">
-                    <strong>Synthroid 88mcg (08:00):</strong> <span id="status-med1" style="color: var(--warning);">⏳ Pendente</span>
+            <h2>Gestão de Medicamentos</h2>
+            <p>Adicione ou remova os remédios que aparecerão para a sua mãe:</p>
+            
+            <!-- Formulário para Cadastrar Novo Remédio -->
+            <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <h3>Cadastrar Novo Remédio</h3>
+                <div class="form-group">
+                    <label>Nome do Remédio e Dosagem:</label>
+                    <input type="text" id="novo-nome" placeholder="Ex: Synthroid 88mcg">
                 </div>
-                <div class="caregiver-log" style="margin-top: 10px;">
-                    <strong>Bromidrato de Galantamina 24mg (08:00):</strong> <span id="status-med2" style="color: var(--warning);">⏳ Pendente</span>
+                <div class="form-group">
+                    <label>Horário:</label>
+                    <input type="text" id="novo-horario" placeholder="Ex: 08:00 (Jejum)">
                 </div>
+                <div class="form-group">
+                    <label>Link da Foto do Comprimido (URL da imagem):</label>
+                    <input type="text" id="novo-foto" placeholder="Cole o link de uma imagem da internet">
+                </div>
+                <button class="btn-add" onclick="adicionarRemedio()">Adicionar Remédio</button>
+            </div>
+
+            <h3>Lista e Acompanhamento em Tempo Real</h3>
+            <div id="cuidador-list-container">
+                <p style="text-align: center; color: #64748b;">A carregar painel...</p>
             </div>
         </div>
     </div>
 
     <script>
-        // CONFIGURAÇÃO DO FIREBASE 
+        // CONFIGURAÇÃO DO FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyDRIwmrRhv0k88UYu69UkdVqG3hUib4Nq0",
             authDomain: "free-talk-a4f07.firebaseapp.com",
@@ -197,17 +256,14 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Relógio e Data em Tempo Real
+        // Relógio e Data
         function atualizarRelogio() {
             const agora = new Date();
-            
-            // Hora formatada
             const horas = String(agora.getHours()).padStart(2, '0');
             const minutos = String(agora.getMinutes()).padStart(2, '0');
             const segundos = String(agora.getSeconds()).padStart(2, '0');
             document.getElementById('live-clock').innerText = `${horas}:${minutos}:${segundos}`;
 
-            // Data formatada (Ex: Sexta-feira, 19 de setembro de 2026)
             const opcoes = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
             document.getElementById('live-date').innerText = agora.toLocaleDateString('pt-BR', opcoes);
         }
@@ -227,46 +283,101 @@
             }
         }
 
-        // Função para o Idoso confirmar que tomou (Bloqueia repetição e avisa a nuvem)
-        function tomarRemedio(medId, nome) {
-            const btn = document.getElementById(medId === 'med1' ? 'btn-med-1' : 'btn-med-2');
-            
-            // Se já estiver tomado, não faz nada para evitar duplo clique confuso
-            if (btn.classList.contains('taken')) return;
+        // Função do Cuidador: Adicionar Novo Remédio
+        function adicionarRemedio() {
+            const nome = document.getElementById('novo-nome').value.trim();
+            const horario = document.getElementById('novo-horario').value.trim();
+            const foto = document.getElementById('novo-foto').value.trim() || 'https://via.placeholder.com/100?text=Remedio';
 
-            const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-            
-            db.collection("medicamentos").doc(medId).set({
-                status: "Tomado",
-                horario: horarioAtual,
+            if (!nome || !horario) {
+                alert("Por favor, preencha o nome e o horário do remédio.");
+                return;
+            }
+
+            db.collection("medicamentos").add({
                 nome: nome,
-                atualizadoEm: new Date().toISOString()
+                horario: horario,
+                foto: foto,
+                status: "Pendente",
+                horaTomado: ""
             }).then(() => {
-                // Feedback imediato local
+                document.getElementById('novo-nome').value = '';
+                document.getElementById('novo-horario').value = '';
+                document.getElementById('novo-foto').value = '';
+                alert("Remédio cadastrado com sucesso!");
             }).catch((error) => {
-                console.error("Erro ao guardar: ", error);
+                console.error("Erro ao adicionar: ", error);
             });
         }
 
-        // Ouvinte em tempo real (Atualiza os botões e desativa lembretes visuais se já tomado)
-        db.collection("medicamentos").onSnapshot((querySnapshot) => {
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                const medId = doc.id;
-                
-                const btn = document.getElementById(medId === 'med1' ? 'btn-med-1' : 'btn-med-2');
-                const statusSpan = document.getElementById(`status-${medId}`);
+        // Função do Cuidador: Deletar Remédio
+        function deletarRemedio(id) {
+            if (confirm("Tem certeza que deseja remover este remédio?")) {
+                db.collection("medicamentos").doc(id).delete().then(() => {
+                    alert("Remédio removido com sucesso!");
+                }).catch((error) => {
+                    console.error("Erro ao deletar: ", error);
+                });
+            }
+        }
 
-                if (data.status === "Tomado") {
-                    if (btn) {
-                        btn.innerText = "JÁ TOMEI ESTE REMÉDIO ✔️ (Tudo Certo!)";
-                        btn.classList.add('taken');
-                    }
-                    if (statusSpan) {
-                        statusSpan.innerHTML = `<span style="color: var(--success); font-weight: bold;">Tomado às ${data.horario} ✅</span>`;
-                    }
-                }
+        // Função do Idoso: Marcar como Tomado
+        function tomarRemedio(id, nome) {
+            const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            
+            db.collection("medicamentos").doc(id).update({
+                status: "Tomado",
+                horaTomado: horarioAtual
+            }).then(() => {
+                // Sincronizado na nuvem
             });
+        }
+
+        // Sincronização em Tempo Real (Ouvinte Firestore)
+        db.collection("medicamentos").onSnapshot((querySnapshot) => {
+            let idosoHtml = "";
+            let cuidadorHtml = "";
+
+            if (querySnapshot.empty) {
+                idosoHtml = "<p style='text-align:center;'>Nenhum remédio cadastrado no momento.</p>";
+                cuidadorHtml = "<p style='text-align:center;'>Nenhum remédio cadastrado.</p>";
+            } else {
+                querySnapshot.forEach((doc) => {
+                    const med = doc.data();
+                    const id = doc.id;
+                    const isTomado = med.status === "Tomado";
+
+                    // Montar HTML da Área do Idoso
+                    idosoHtml += `
+                        <div class="med-card-idoso">
+                            <img src="${med.foto}" alt="${med.nome}" class="med-img">
+                            <h3>${med.nome}</h3>
+                            <p>Horário: ${med.horario}</p>
+                            <button id="btn-${id}" class="big-btn ${isTomado ? 'taken' : ''}" 
+                                    onclick="tomarRemedio('${id}', '${med.nome}')" 
+                                    ${isTomado ? 'disabled' : ''}>
+                                ${isTomado ? 'JÁ TOMEI ESTE REMÉDIO ✔️ (Tudo Certo!)' : 'HORA DE TOMAR O REMÉDIO!'}
+                            </button>
+                        </div>
+                    `;
+
+                    // Montar HTML da Área do Cuidador
+                    cuidadorHtml += `
+                        <div class="caregiver-item">
+                            <div>
+                                <strong>${med.nome}</strong> (${med.horario})<br>
+                                Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
+                                    ${isTomado ? 'Tomado às ' + med.horaTomado + ' ✅' : '⏳ Pendente'}
+                                </span>
+                            </div>
+                            <button class="btn-delete" onclick="deletarRemedio('${id}')">Excluir</button>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById('idoso-meds-container').innerHTML = idosoHtml;
+            document.getElementById('cuidador-list-container').innerHTML = cuidadorHtml;
         });
     </script>
 </body>
