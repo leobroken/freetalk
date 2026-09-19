@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free Talk - Controle de Medicamentos</title>
-    <!-- Importando o Firebase SDK -->
+    <title>Free Talk - Gestão Compartilhada de Medicamentos</title>
+    <!-- Firebase SDK (App, Auth, Firestore, Messaging) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
     <style>
@@ -35,38 +36,61 @@
         }
         h1 { color: var(--primary); margin-bottom: 5px; }
 
-        /* Tela de Seleção de Perfil Inicial */
-        #profile-selector {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 80vh;
+        /* Estilos de Autenticação e Telas */
+        .card-box {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            margin-top: 20px;
             text-align: center;
         }
-        .profile-card-container {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            width: 100%;
-            max-width: 350px;
-            margin-top: 20px;
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
         }
-        .btn-profile {
-            padding: 25px;
-            font-size: 1.4rem;
+        .form-group label {
+            display: block;
             font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            box-sizing: border-box;
+            background: white;
+            font-size: 1rem;
+        }
+        .btn-main {
+            background: var(--primary);
             color: white;
             border: none;
-            border-radius: 14px;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
             cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-            transition: 0.2s;
+            width: 100%;
+            margin-top: 10px;
         }
-        .btn-profile.idoso { background-color: var(--primary); }
-        .btn-profile.cuidador { background-color: var(--success); }
-
-        /* Botões de navegação de perfil */
+        .btn-google {
+            background: white;
+            color: #475569;
+            border: 2px solid #cbd5e1;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
         .btn-acao-topo {
             background: #64748b;
             color: white;
@@ -78,8 +102,29 @@
             position: absolute;
             top: 5px;
         }
-        #btn-trocar-container { right: 0; }
-        #btn-voltar-cuidador { left: 0; background: var(--success); display: none; }
+        #btn-logout { right: 0; background: var(--danger); }
+
+        /* Perfis e Painéis */
+        .profile-card-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 350px;
+            margin: 20px auto 0 auto;
+        }
+        .btn-profile {
+            padding: 25px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .btn-profile.idoso { background-color: var(--primary); }
+        .btn-profile.cuidador { background-color: var(--success); }
 
         .clock-container {
             background: #1e293b;
@@ -90,49 +135,11 @@
             margin-bottom: 15px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        #live-clock {
-            font-size: 2.2rem;
-            font-weight: bold;
-            letter-spacing: 2px;
-        }
-        #live-date {
-            font-size: 1.1rem;
-            color: #94a3b8;
-            margin-top: 5px;
-            text-transform: capitalize;
-        }
+        #live-clock { font-size: 2.2rem; font-weight: bold; letter-spacing: 2px; }
+        #live-date { font-size: 1.1rem; color: #94a3b8; margin-top: 5px; text-transform: capitalize; }
 
-        .notification-banner {
-            background: #eff6ff;
-            border: 2px dashed var(--primary);
-            padding: 12px;
-            border-radius: 10px;
-            text-align: center;
-            margin-bottom: 20px;
-            display: none;
-        }
-        .btn-notif {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 0.95rem;
-            margin-top: 5px;
-        }
-
-        .section {
-            display: none;
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
-        .section.active {
-            display: block;
-        }
+        .section { display: none; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .section.active { display: block; }
         
         .med-card-idoso {
             background: #f1f5f9;
@@ -146,159 +153,42 @@
             align-items: center;
         }
         .med-img {
-            width: 120px;
-            height: 120px;
-            object-fit: cover;
-            border-radius: 50%;
-            border: 3px solid var(--primary);
-            margin-bottom: 12px;
-            background: #e2e8f0;
-        }
-        .med-card-idoso h3 {
-            font-size: 1.5rem;
-            margin-bottom: 5px;
-        }
-        .med-card-idoso p {
-            font-size: 1.1rem;
-            color: #64748b;
-            margin-bottom: 15px;
+            width: 120px; height: 120px; object-fit: cover; border-radius: 50%;
+            border: 3px solid var(--primary); margin-bottom: 12px; background: #e2e8f0;
         }
         .big-btn {
-            width: 100%;
-            padding: 25px;
-            font-size: 1.3rem;
-            font-weight: bold;
-            color: white;
-            background-color: var(--warning);
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-            transition: 0.2s;
+            width: 100%; padding: 25px; font-size: 1.3rem; font-weight: bold; color: white;
+            background-color: var(--warning); border: none; border-radius: 12px; cursor: pointer;
         }
-        .big-btn.taken {
-            background-color: var(--success);
-            cursor: not-allowed;
-        }
+        .big-btn.taken { background-color: var(--success); cursor: not-allowed; }
 
-        .form-group {
-            margin-bottom: 15px;
-            text-align: left;
-        }
-        .form-group label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            box-sizing: border-box;
-            background: white;
-        }
-        
         .btn-camera {
-            background: #0284c7;
-            color: white;
-            padding: 14px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.05rem;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-            text-align: center;
-            display: block;
-            box-sizing: border-box;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .preview-container {
-            text-align: center;
-            margin-top: 10px;
-        }
-        #preview-img {
-            width: 90px;
-            height: 90px;
-            object-fit: cover;
-            border-radius: 50%;
-            border: 2px solid var(--primary);
-            display: none;
-            margin: 8px auto 0 auto;
-        }
-
-        .btn-add {
-            background: var(--success);
-            color: white;
-            padding: 14px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 10px;
+            background: #0284c7; color: white; padding: 14px; border: none; border-radius: 8px;
+            font-size: 1.05rem; font-weight: bold; cursor: pointer; width: 100%; text-align: center;
         }
         .caregiver-item {
-            background: #f8fafc;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 10px;
-            border-left: 5px solid var(--primary);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
+            background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 10px;
+            border-left: 5px solid var(--primary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
         }
-        .btn-alertar {
-            background: var(--danger);
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 0.85rem;
+        .btn-alertar { background: var(--danger); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
+        .btn-delete { background: #64748b; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
+
+        .codigo-box {
+            background: #ecfdf5; border: 2px dashed var(--success); padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;
         }
-        .btn-delete {
-            background: #64748b;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 0.85rem;
-        }
+        .codigo-destaque { font-size: 1.8rem; font-weight: bold; color: var(--success); letter-spacing: 2px; margin: 5px 0; }
 
         #alerta-urgente-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(220, 38, 38, 0.92);
-            z-index: 9999;
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            text-align: center;
-            padding: 20px;
-            box-sizing: border-box;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(220, 38, 38, 0.92); z-index: 9999; display: none;
+            flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; padding: 20px; box-sizing: border-box;
         }
-        #alerta-urgente-overlay h2 {
-            font-size: 2.2rem;
-            margin-bottom: 15px;
-            animation: piscar 0.8s infinite alternate;
-        }
-        @keyframes piscar {
-            from { opacity: 1; }
-            to { opacity: 0.4; }
-        }
+        #alerta-urgente-overlay h2 { font-size: 2.2rem; margin-bottom: 15px; animation: piscar 0.8s infinite alternate; }
+        @keyframes piscar { from { opacity: 1; } to { opacity: 0.4; } }
     </style>
 </head>
 <body>
+    <!-- Ecrã de Alerta Urgente -->
     <div id="alerta-urgente-overlay">
         <h2>🚨 ATENÇÃO! HORA DO REMÉDIO! 🚨</h2>
         <p id="texto-aviso-urgente" style="font-size: 1.3rem; margin-bottom: 25px;">O cuidador enviou um alerta urgente.</p>
@@ -307,95 +197,158 @@
         </button>
     </div>
 
-    <!-- TELA DE SELECÇÃO DE PERFIL -->
-    <div id="profile-selector" class="container">
-        <h1>Free Talk</h1>
-        <p style="color: #64748b; font-size: 1.1rem;">Selecione o seu perfil para entrar na aplicação:</p>
-        <div class="profile-card-container">
-            <button class="btn-profile idoso" onclick="selecionarPerfil('idoso')">
-                👵 Sou Idoso(a)
-            </button>
-            <button class="btn-profile cuidador" onclick="selecionarPerfil('cuidador')">
-                📋 Sou Cuidador(a)
-            </button>
-        </div>
-    </div>
-
-    <!-- TELA PRINCIPAL DA APLICAÇÃO -->
-    <div id="main-app" class="container" style="display: none;">
+    <div class="container">
         <header>
-            <button id="btn-voltar-cuidador" class="btn-acao-topo" onclick="mudarParaPainelCuidador()">📋 Painel Cuidador</button>
-            <button id="btn-trocar-container" class="btn-acao-topo" onclick="esquecerPerfil()">🔄 Trocar Perfil</button>
+            <button id="btn-logout" class="btn-acao-topo" style="display: none;" onclick="sairDaConta()">🚪 Sair</button>
             <h1>Free Talk</h1>
-            <p id="subtitulo-perfil">Cuidado e Memória em Tempo Real</p>
+            <p id="subtitulo-topo">Gestão Compartilhada de Medicamentos</p>
         </header>
 
-        <div class="notification-banner" id="notif-banner">
-            <span style="font-size: 0.95rem; color: #1e293b;">🔔 Deseja ativar avisos no telemóvel?</span><br>
-            <button class="btn-notif" onclick="pedirPermissaoNotificacao()">Ativar Notificações Push</button>
+        <!-- ETAPA 1: LOGIN / AUTENTICAÇÃO -->
+        <div id="tela-login" class="card-box" style="display: none;">
+            <h2>Acessar Conta</h2>
+            <p style="color: #64748b; font-size: 0.95rem;">Entre com a sua conta Google ou E-mail para continuar.</p>
+            <button class="btn-google" onclick="loginGoogle()">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.13 0-5.78-2.11-6.73-4.96H1.18v3.14C3.17 21.36 7.23 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.62H1.18C.43 8.14 0 9.87 0 11.76s.43 3.62 1.18 5.14l4.09-3.16z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.23 0 3.17 2.64 1.18 6.62l4.09 3.14c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>
+                Continuar com o Google
+            </button>
+            <div style="margin: 15px 0; color: #94a3b8; font-size: 0.9rem;">ou entre com e-mail</div>
+            <div class="form-group">
+                <label>E-mail:</label>
+                <input type="email" id="login-email" placeholder="seu@email.com">
+            </div>
+            <div class="form-group">
+                <label>Palavra-passe:</label>
+                <input type="password" id="login-senha" placeholder="********">
+            </div>
+            <button class="btn-main" onclick="loginEmailSenha()">Entrar</button>
+            <p style="margin-top: 15px; font-size: 0.9rem;">Não tem conta? <a href="#" onclick="alternarTelaRegisto(true)" style="color: var(--primary); font-weight: bold;">Criar Conta</a></p>
         </div>
 
-        <!-- ÁREA DO IDOSO -->
-        <div id="section-idoso" class="section">
-            <div class="clock-container">
-                <div id="live-clock">00:00:00</div>
-                <div id="live-date">Carregando data...</div>
+        <!-- ETAPA 1.1: CRIAR CONTA -->
+        <div id="tela-registo" class="card-box" style="display: none;">
+            <h2>Criar Nova Conta</h2>
+            <div class="form-group">
+                <label>E-mail:</label>
+                <input type="email" id="reg-email" placeholder="seu@email.com">
             </div>
+            <div class="form-group">
+                <label>Palavra-passe (mín. 6 carateres):</label>
+                <input type="password" id="reg-senha" placeholder="********">
+            </div>
+            <button class="btn-main" onclick="registarEmailSenha()">Registar e Continuar</button>
+            <p style="margin-top: 15px; font-size: 0.9rem;"><a href="#" onclick="alternarTelaRegisto(false)" style="color: var(--primary); font-weight: bold;">← Voltar ao Login</a></p>
+        </div>
 
-            <h2>Seus Remédios de Hoje</h2>
-            <p>Toque no botão abaixo assim que tomar o seu remédio:</p>
+        <!-- ETAPA 2: CADASTRO COMPLEMENTAR (Nome e Data de Nascimento) -->
+        <div id="tela-cadastro-dados" class="card-box" style="display: none;">
+            <h2>Complete o seu Cadastro</h2>
+            <p style="color: #64748b; font-size: 0.95rem;">Precisamos de vosso nome e data de nascimento para identificação.</p>
+            <div class="form-group">
+                <label>Nome Completo:</label>
+                <input type="text" id="user-nome" placeholder="Ex: Maria da Silva">
+            </div>
+            <div class="form-group">
+                <label>Data de Nascimento:</label>
+                <input type="date" id="user-nascimento">
+            </div>
+            <button class="btn-main" onclick="salvarDadosUtilizador()">Avançar</button>
+        </div>
 
-            <div id="idoso-meds-container">
-                <p style="text-align: center; color: #64748b;">A carregar medicamentos...</p>
+        <!-- ETAPA 3: SELEÇÃO DE PERFIL (Idoso ou Cuidador) -->
+        <div id="tela-perfil-selector" class="card-box" style="display: none;">
+            <h2>Qual é o seu papel?</h2>
+            <p style="color: #64748b; font-size: 0.95rem;">Escolha como vai utilizar a aplicação neste dispositivo:</p>
+            <div class="profile-card-container">
+                <button class="btn-profile idoso" onclick="escolherPerfil('idoso')">
+                    👵 Sou Idoso(a)
+                </button>
+                <button class="btn-profile cuidador" onclick="escolherPerfil('cuidador')">
+                    📋 Sou Cuidador(a)
+                </button>
             </div>
         </div>
 
-        <!-- ÁREA DO CUIDADOR -->
-        <div id="section-cuidador" class="section">
-            <h2>Gestão de Medicamentos</h2>
-            <p>Adicione remédios e envie alertas de urgência se necessário:</p>
-            
-            <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <h3>Cadastrar Novo Remédio</h3>
-                <div class="form-group">
-                    <label>Nome do Remédio e Dosagem:</label>
-                    <input type="text" id="novo-nome" placeholder="Ex: Losartana 50mg">
+        <!-- ETAPA 3.1: PEDIR CÓDIGO DO CUIDADOR (Se for Idoso e não estiver vinculado) -->
+        <div id="tela-pedir-codigo" class="card-box" style="display: none;">
+            <h2>Emparelhar com o Cuidador</h2>
+            <p style="color: #64748b; font-size: 0.95rem;">Insira o código de vínculo fornecido pelo seu cuidador para conectar os perfis:</p>
+            <div class="form-group">
+                <label>Código do Cuidador:</label>
+                <input type="text" id="input-codigo-vinculo" placeholder="Ex: LORENA-8492" style="text-transform: uppercase; text-align: center; font-size: 1.3rem; letter-spacing: 2px;">
+            </div>
+            <button class="btn-main" onclick="vincularIdosoAoCuidador()">Conectar Vínculo</button>
+        </div>
+
+        <!-- ETAPA 4: PAINEL PRINCIPAL (Idoso ou Cuidador) -->
+        <div id="main-app" class="container" style="display: none;">
+            <!-- ÁREA DO IDOSO -->
+            <div id="section-idoso" class="section">
+                <div class="clock-container">
+                    <div id="live-clock">00:00:00</div>
+                    <div id="live-date">Carregando data...</div>
                 </div>
-                <div class="form-group">
-                    <label>Horário:</label>
-                    <input type="text" id="novo-horario" placeholder="Ex: 08:00">
+
+                <h2>Seus Remédios de Hoje</h2>
+                <p>Toque no botão abaixo assim que tomar o seu remédio:</p>
+                <div id="idoso-meds-container">
+                    <p style="text-align: center; color: #64748b;">A carregar medicamentos...</p>
                 </div>
-                <div class="form-group">
-                    <label>Tipo de Tratamento:</label>
-                    <select id="tipo-tratamento" onchange="alternarDiasTratamento()">
-                        <option value="continuo">Uso Contínuo (Todo dia)</option>
-                        <option value="dias">Quantidade Específica de Dias</option>
-                    </select>
-                </div>
+            </div>
+
+            <!-- ÁREA DO CUIDADOR -->
+            <div id="section-cuidador" class="section">
+                <h2>Gestão de Medicamentos</h2>
                 
-                <div class="form-group" id="grupo-dias" style="display: none;">
-                    <label>Quantos dias vai tomar?</label>
-                    <input type="number" id="novo-dias" min="1" max="365" value="5">
+                <!-- Caixa do Código de Vínculo do Cuidador -->
+                <div class="codigo-box">
+                    <span>Código de Vínculo do Idoso (Partilhe com outros cuidadores ou com o idoso):</span>
+                    <div id="display-codigo-cuidador" class="codigo-destaque">A gerar...</div>
+                    <button class="btn-main" style="padding: 8px; font-size: 0.9rem; margin-top: 5px;" onclick="copiarCodigoCuidador()">📋 Copiar Código</button>
                 </div>
 
-                <div class="form-group">
-                    <label>Registo Fotográfico:</label>
-                    <input type="file" id="input-camera" accept="image/*" capture="environment" style="display: none;" onchange="mostrarPreview(this)">
-                    <button type="button" class="btn-camera" onclick="document.getElementById('input-camera').click()">
-                        📸 FOTO DO COMPRIMIDO
-                    </button>
-                    <div class="preview-container">
-                        <img id="preview-img" alt="Foto do comprimido">
-                        <p id="preview-text" style="font-size: 0.85rem; color: var(--success); font-weight: bold; margin-top: 5px; display: none;">Foto capturada com sucesso! ✅</p>
+                <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3>Cadastrar Novo Remédio</h3>
+                    <div class="form-group">
+                        <label>Nome do Remédio e Dosagem:</label>
+                        <input type="text" id="novo-nome" placeholder="Ex: Losartana 50mg">
                     </div>
+                    <div class="form-group">
+                        <label>Horário:</label>
+                        <input type="text" id="novo-horario" placeholder="Ex: 08:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Tratamento:</label>
+                        <select id="tipo-tratamento" onchange="alternarDiasTratamento()">
+                            <option value="continuo">Uso Contínuo (Todo dia)</option>
+                            <option value="dias">Quantidade Específica de Dias</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="grupo-dias" style="display: none;">
+                        <label>Quantos dias vai tomar?</label>
+                        <input type="number" id="novo-dias" min="1" max="365" value="5">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Registo Fotográfico:</label>
+                        <input type="file" id="input-camera" accept="image/*" capture="environment" style="display: none;" onchange="mostrarPreview(this)">
+                        <button type="button" class="btn-camera" onclick="document.getElementById('input-camera').click()">
+                            📸 FOTO DO COMPRIMIDO
+                        </button>
+                        <div class="preview-container" style="text-align:center; margin-top:10px;">
+                            <img id="preview-img" alt="Foto" style="width:90px; height:90px; object-fit:cover; border-radius:50%; border:2px solid var(--primary); display:none; margin:8px auto 0 auto;">
+                            <p id="preview-text" style="font-size: 0.85rem; color: var(--success); font-weight: bold; margin-top: 5px; display: none;">Foto capturada! ✅</p>
+                        </div>
+                    </div>
+
+                    <button class="btn-main" onclick="adicionarRemedio()">Adicionar Remédio</button>
                 </div>
 
-                <button class="btn-add" onclick="adicionarRemedio()">Adicionar Remédio</button>
-            </div>
-
-            <h3>Lista e Acompanhamento em Tempo Real</h3>
-            <div id="cuidador-list-container">
-                <p style="text-align: center; color: #64748b;">A carregar painel...</p>
+                <h3>Lista e Acompanhamento em Tempo Real</h3>
+                <div id="cuidador-list-container">
+                    <p style="text-align: center; color: #64748b;">A carregar painel...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -412,89 +365,355 @@
         };
 
         firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
         const db = firebase.firestore();
-        const messaging = firebase.messaging();
 
+        let utilizadorAtual = null;
+        let dadosUtilizador = null;
+        let unsubscribeMedicamentos = null;
         let fotoBase64Global = "";
         let audioIntervalo = null;
         let vibracaoIntervalo = null;
 
-        window.addEventListener('DOMContentLoaded', () => {
-            const perfilSalvo = localStorage.getItem('freetalk_perfil');
-            if (perfilSalvo) {
-                carregarPainelPerfil(perfilSalvo);
+        // Observar Estado de Autenticação do Firebase
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                utilizadorAtual = user;
+                document.getElementById('btn-logout').style.display = 'block';
+                await verificarDadosPerfil(user.uid);
+            } else {
+                utilizadorAtual = null;
+                dadosUtilizador = null;
+                if (unsubscribeMedicamentos) unsubscribeMedicamentos();
+                document.getElementById('btn-logout').style.display = 'none';
+                esconderTodasAsTelas();
+                document.getElementById('tela-login').style.display = 'block';
             }
-            verificarPermissaoNotificacaoAutomatica();
         });
 
-        function verificarPermissaoNotificacaoAutomatica() {
-            if (!('Notification' in window)) return;
-            if (Notification.permission === 'granted') {
-                document.getElementById('notif-banner').style.display = 'none';
-            } else if (Notification.permission === 'default') {
-                document.getElementById('notif-banner').style.display = 'block';
-            } else {
-                document.getElementById('notif-banner').style.display = 'none';
-            }
-        }
-
-        function pedirPermissaoNotificacao() {
-            Notification.requestPermission().then((permission) => {
-                if (permission === 'granted') {
-                    alert('Notificações ativadas com sucesso!');
-                    document.getElementById('notif-banner').style.display = 'none';
-                } else {
-                    alert('Permissão de notificação negada nas configurações do navegador.');
-                }
+        function esconderTodasAsTelas() {
+            ['tela-login', 'tela-registo', 'tela-cadastro-dados', 'tela-perfil-selector', 'tela-pedir-codigo', 'main-app'].forEach(id => {
+                document.getElementById(id).style.display = 'none';
             });
         }
 
-        function selecionarPerfil(perfil) {
-            // Guarda o perfil raiz do dispositivo (marca que este aparelho pertence ao cuidador se escolhido primeiro)
-            if (!localStorage.getItem('freetalk_perfil_raiz')) {
-                localStorage.setItem('freetalk_perfil_raiz', perfil);
+        // Funções de Autenticação (Google e E-mail)
+        function loginGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(err => alert("Erro ao entrar com Google: " + err.message));
+        }
+
+        function loginEmailSenha() {
+            const email = document.getElementById('login-email').value;
+            const senha = document.getElementById('login-senha').value;
+            auth.signInWithEmailAndPassword(email, senha).catch(err => alert("Erro ao entrar: " + err.message));
+        }
+
+        function registarEmailSenha() {
+            const email = document.getElementById('reg-email').value;
+            const senha = document.getElementById('reg-senha').value;
+            auth.createUserWithEmailAndPassword(email, senha).catch(err => alert("Erro ao registar: " + err.message));
+        }
+
+        function alternarTelaRegisto(mostrar) {
+            esconderTodasAsTelas();
+            document.getElementById(mostrar ? 'tela-registo' : 'tela-login').style.display = 'block';
+        }
+
+        function sairDaConta() {
+            auth.signOut();
+        }
+
+        // Verificar se já preencheu Nome e Nascimento no Firestore
+        async function verificarDadosPerfil(uid) {
+            const docRef = db.collection('utilizadores').doc(uid);
+            const docSnap = await docRef.get();
+
+            if (!docSnap.exists || !docSnap.data().nome) {
+                esconderTodasAsTelas();
+                document.getElementById('tela-cadastro-dados').style.display = 'block';
+            } else {
+                dadosUtilizador = docSnap.data();
+                verificarSelecaoPerfil();
             }
-            localStorage.setItem('freetalk_perfil', perfil);
-            carregarPainelPerfil(perfil);
         }
 
-        function esquecerPerfil() {
-            localStorage.removeItem('freetalk_perfil');
-            localStorage.removeItem('freetalk_perfil_raiz');
-            location.reload();
+        async function salvarDadosUtilizador() {
+            const nome = document.getElementById('user-nome').value.trim();
+            const nascimento = document.getElementById('user-nascimento').value;
+
+            if (!nome || !nascimento) {
+                alert("Por favor, preencha o seu nome completo e data de nascimento.");
+                return;
+            }
+
+            const dados = { nome: nome, nascimento: nascimento, email: utilizadorAtual.email };
+            await db.collection('utilizadores').doc(utilizadorAtual.uid).set(dados, { merge: true });
+            dadosUtilizador = dados;
+            verificarSelecaoPerfil();
         }
 
-        // Se o dispositivo foi registado originalmente como cuidador, permite voltar ao painel de gestão mesmo estando no idoso
-        function mudarParaPainelCuidador() {
-            localStorage.setItem('freetalk_perfil', 'cuidador');
-            carregarPainelPerfil('cuidador');
+        function verificarSelecaoPerfil() {
+            const perfilSalvo = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
+            if (!perfilSalvo) {
+                esconderTodasAsTelas();
+                document.getElementById('tela-perfil-selector').style.display = 'block';
+            } else {
+                // Se for idoso, verifica se já está vinculado a um código de cuidador
+                if (perfilSalvo === 'idoso') {
+                    verificarVinculoIdoso();
+                } else {
+                    carregarPainelPrincipal('cuidador');
+                }
+            }
         }
 
-        function carregarPainelPerfil(perfil) {
-            document.getElementById('profile-selector').style.display = 'none';
+        async function escolherPerfil(perfil) {
+            localStorage.setItem(`freetalk_perfil_${utilizadorAtual.uid}`, perfil);
+            
+            if (perfil === 'cuidador') {
+                // Gera ou recupera o código de vínculo do cuidador
+                let codigo = localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`);
+                if (!codigo) {
+                    codigo = 'FREE-' + Math.floor(1000 + Math.random() * 9000);
+                    localStorage.setItem(`freetalk_codigo_${utilizadorAtual.uid}`, codigo);
+                    // Salva no Firestore para que o idoso consiga encontrar
+                    await db.collection('vinculos').doc(codigo).set({ cuidadorUid: utilizadorAtual.uid });
+                }
+                carregarPainelPrincipal('cuidador');
+            } else {
+                verificarVinculoIdoso();
+            }
+        }
+
+        async function verificarVinculoIdoso() {
+            const codigoVinculado = localStorage.getItem(`freetalk_vinculo_idoso_${utilizadorAtual.uid}`);
+            if (!codigoVinculado) {
+                esconderTodasAsTelas();
+                document.getElementById('tela-pedir-codigo').style.display = 'block';
+            } else {
+                carregarPainelPrincipal('idoso', codigoVinculado);
+            }
+        }
+
+        async function vincularIdosoAoCuidador() {
+            const codigo = document.getElementById('input-codigo-vinculo').value.trim().toUpperCase();
+            if (!codigo) {
+                alert("Insira o código do cuidador.");
+                return;
+            }
+
+            const vinculoDoc = await db.collection('vinculos').doc(codigo).get();
+            if (!vinculoDoc.exists) {
+                alert("Código de cuidador inválido ou não encontrado. Verifique com o cuidador.");
+                return;
+            }
+
+            localStorage.setItem(`freetalk_vinculo_idoso_${utilizadorAtual.uid}`, codigo);
+            alert("Vínculo estabelecido com sucesso!");
+            carregarPainelPrincipal('idoso', codigo);
+        }
+
+        function carregarPainelPrincipal(perfil, codigoVinculo = null) {
+            esconderTodasAsTelas();
             document.getElementById('main-app').style.display = 'block';
-
-            const perfilRaiz = localStorage.getItem('freetalk_perfil_raiz');
 
             if (perfil === 'idoso') {
                 document.getElementById('section-idoso').classList.add('active');
                 document.getElementById('section-cuidador').classList.remove('active');
-                document.getElementById('subtitulo-perfil').innerText = "Área do Idoso";
-                document.getElementById('btn-trocar-container').style.display = 'none';
-
-                // Se o dispositivo pertence ao Cuidador, mostra um botão discreto para voltar ao painel de gestão
-                if (perfilRaiz === 'cuidador') {
-                    document.getElementById('btn-voltar-cuidador').style.display = 'block';
-                } else {
-                    document.getElementById('btn-voltar-cuidador').style.display = 'none';
-                }
+                document.getElementById('subtitulo-topo').innerText = `Área do Idoso • ${dadosUtilizador.nome}`;
+                escutarMedicamentos(codigoVinculo);
             } else {
                 document.getElementById('section-cuidador').classList.add('active');
                 document.getElementById('section-idoso').classList.remove('active');
-                document.getElementById('subtitulo-perfil').innerText = "Painel de Gestão do Cuidador";
-                document.getElementById('btn-trocar-container').style.display = 'block';
-                document.getElementById('btn-voltar-cuidador').style.display = 'none';
+                document.getElementById('subtitulo-topo').innerText = `Painel de Gestão • ${dadosUtilizador.nome}`;
+                
+                const codigo = localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`) || 'FREE-1234';
+                document.getElementById('display-codigo-cuidador').innerText = codigo;
+                escutarMedicamentos(codigo);
             }
+        }
+
+        function copiarCodigoCuidador() {
+            const codigo = document.getElementById('display-codigo-cuidador').innerText;
+            navigator.clipboard.writeText(codigo);
+            alert("Código copiado para a área de transferência!");
+        }
+
+        // Lógica de Medicamentos em Tempo Real baseada no Código de Vínculo
+        function escutarMedicamentos(codigoVinculo) {
+            if (unsubscribeMedicamentos) unsubscribeMedicamentos();
+
+            unsubscribeMedicamentos = db.collection('medicamentos')
+                .where('codigoVinculo', '==', codigoVinculo)
+                .onSnapshot((snapshot) => {
+                    let idosoHtml = "";
+                    let cuidadorHtml = "";
+                    const hoje = new Date().toISOString().split('T')[0];
+                    let dispararAlarme = false;
+                    let nomeUrgente = "";
+
+                    if (snapshot.empty) {
+                        idosoHtml = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado no momento.</p>";
+                        cuidadorHtml = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado.</p>";
+                    } else {
+                        snapshot.forEach((doc) => {
+                            const med = doc.data();
+                            const id = doc.id;
+
+                            if (!med.continuo && med.dataTermino && hoje > med.dataTermino) {
+                                db.collection('medicamentos').doc(id).delete();
+                                return;
+                            }
+
+                            if (med.continuo && med.status === "Tomado" && med.dataAtualizacao !== hoje) {
+                                db.collection('medicamentos').doc(id).update({
+                                    status: "Pendente",
+                                    alertaUrgente: false,
+                                    horaTomado: "",
+                                    dataAtualizacao: hoje
+                                });
+                                return;
+                            }
+
+                            const isTomado = med.status === "Tomado";
+                            if (med.alertaUrgente && !isTomado) {
+                                dispararAlarme = true;
+                                nomeUrgente = med.nome;
+                            }
+
+                            let infoTratamento = med.continuo ? '• <i>(Uso Contínuo)</i>' : `• <i>(Até ${med.dataTermino.split('-').reverse().join('/')})</i>`;
+
+                            idosoHtml += `
+                                <div class="med-card-idoso">
+                                    <img src="${med.foto}" alt="${med.nome}" class="med-img">
+                                    <h3>${med.nome}</h3>
+                                    <p>Horário: ${med.horario} <br>${infoTratamento}</p>
+                                    <button class="big-btn ${isTomado ? 'taken' : ''}" onclick="tomarRemedio('${id}')" ${isTomado ? 'disabled' : ''}>
+                                        ${isTomado ? 'JÁ TOMEI ESTE REMÉDIO ✔️' : 'HORA DE TOMAR O REMÉDIO!'}
+                                    </button>
+                                </div>
+                            `;
+
+                            cuidadorHtml += `
+                                <div class="caregiver-item">
+                                    <div style="flex: 1; min-width: 200px;">
+                                        <img src="${med.foto}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 8px;">
+                                        <strong>${med.nome}</strong> (${med.horario})<br>
+                                        <span style="margin-left: 48px; font-size: 0.85rem; color: #475569;">
+                                            Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
+                                                ${isTomado ? 'Tomado às ' + med.horaTomado + ' ✅' : 'Pendente'}
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <div style="display: flex; gap: 5px;">
+                                        ${!isTomado ? `<button class="btn-alertar" onclick="alertarIdoso('${id}', '${med.nome}')">🚨 ALERTAR IDOSO</button>` : ''}
+                                        <button class="btn-delete" onclick="deletarRemedio('${id}')">Excluir</button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+
+                    document.getElementById('idoso-meds-container').innerHTML = idosoHtml;
+                    document.getElementById('cuidador-list-container').innerHTML = cuidadorHtml;
+
+                    if (dispararAlarme && localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`) === 'idoso') {
+                        document.getElementById('texto-aviso-urgente').innerText = `O cuidador enviou um alerta urgente para tomar: ${nomeUrgente}!`;
+                        document.getElementById('alerta-urgente-overlay').style.display = 'flex';
+                        dispararAlarmeSonoroEContínuo();
+                    }
+                });
+        }
+
+        // Funções de Gestão de Remédios
+        function alternarDiasTratamento() {
+            const tipo = document.getElementById('tipo-tratamento').value;
+            document.getElementById('grupo-dias').style.display = (tipo === 'dias') ? 'block' : 'none';
+        }
+
+        function mostrarPreview(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    fotoBase64Global = e.target.result;
+                    const img = document.getElementById('preview-img');
+                    img.src = fotoBase64Global;
+                    img.style.display = 'block';
+                    document.getElementById('preview-text').style.display = 'block';
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function adicionarRemedio() {
+            const nome = document.getElementById('novo-nome').value.trim();
+            const horario = document.getElementById('novo-horario').value.trim();
+            const tipoTratamento = document.getElementById('tipo-tratamento').value;
+            
+            if (!nome || !horario) {
+                alert("Por favor, preencha o nome e o horário do remédio.");
+                return;
+            }
+
+            let continuo = true;
+            let dataTermino = "";
+            const hojeStr = new Date().toISOString().split('T')[0];
+
+            if (tipoTratamento === 'dias') {
+                continuo = false;
+                const qtdDias = parseInt(document.getElementById('novo-dias').value) || 1;
+                let dataFimObj = new Date();
+                dataFimObj.setDate(dataFimObj.getDate() + qtdDias);
+                dataTermino = dataFimObj.toISOString().split('T')[0];
+            }
+
+            const codigoCuidador = localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`);
+            const fotoPadrao = 'https://cdn-icons-png.flaticon.com/512/883/883397.png';
+
+            db.collection('medicamentos').add({
+                codigoVinculo: codigoCuidador,
+                nome: nome,
+                horario: horario,
+                continuo: continuo,
+                dataTermino: dataTermino,
+                foto: fotoBase64Global || fotoPadrao,
+                status: "Pendente",
+                alertaUrgente: false,
+                horaTomado: "",
+                dataAtualizacao: hojeStr
+            }).then(() => {
+                document.getElementById('novo-nome').value = '';
+                document.getElementById('novo-horario').value = '';
+                document.getElementById('input-camera').value = '';
+                fotoBase64Global = "";
+                document.getElementById('preview-img').style.display = 'none';
+                document.getElementById('preview-text').style.display = 'none';
+                alert("Remédio adicionado com sucesso!");
+            });
+        }
+
+        function deletarRemedio(id) {
+            if (confirm("Deseja remover este remédio?")) {
+                db.collection('medicamentos').doc(id).delete();
+            }
+        }
+
+        function alertarIdoso(id, nome) {
+            db.collection('medicamentos').doc(id).update({ alertaUrgente: true }).then(() => {
+                alert(`Alerta urgente enviado para o remédio: ${nome}!`);
+            });
+        }
+
+        function tomarRemedio(id) {
+            pararAlarmeGeral();
+            const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            db.collection('medicamentos').doc(id).update({
+                status: "Tomado",
+                alertaUrgente: false,
+                horaTomado: horarioAtual,
+                dataAtualizacao: new Date().toISOString().split('T')[0]
+            });
         }
 
         function dispararAlarmeSonoroEContínuo() {
@@ -528,204 +747,6 @@
             if (navigator.vibrate) { navigator.vibrate(0); }
             document.getElementById('alerta-urgente-overlay').style.display = 'none';
         }
-
-        function atualizarRelogio() {
-            const agora = new Date();
-            const horas = String(agora.getHours()).padStart(2, '0');
-            const minutos = String(agora.getMinutes()).padStart(2, '0');
-            const segundos = String(agora.getSeconds()).padStart(2, '0');
-            const relogioEl = document.getElementById('live-clock');
-            if(relogioEl) relogioEl.innerText = `${horas}:${minutos}:${segundos}`;
-
-            const opcoes = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            const dataEl = document.getElementById('live-date');
-            if(dataEl) dataEl.innerText = agora.toLocaleDateString('pt-BR', opcoes);
-        }
-        setInterval(atualizarRelogio, 1000);
-        atualizarRelogio();
-
-        function obterDataAtual() {
-            const d = new Date();
-            return d.toISOString().split('T')[0];
-        }
-
-        function alternarDiasTratamento() {
-            const tipo = document.getElementById('tipo-tratamento').value;
-            document.getElementById('grupo-dias').style.display = (tipo === 'dias') ? 'block' : 'none';
-        }
-
-        function mostrarPreview(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    fotoBase64Global = e.target.result;
-                    const imgPreview = document.getElementById('preview-img');
-                    imgPreview.src = fotoBase64Global;
-                    imgPreview.style.display = 'block';
-                    document.getElementById('preview-text').style.display = 'block';
-                };
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-
-        function adicionarRemedio() {
-            const nome = document.getElementById('novo-nome').value.trim();
-            const horario = document.getElementById('novo-horario').value.trim();
-            const tipoTratamento = document.getElementById('tipo-tratamento').value;
-            
-            if (!nome || !horario) {
-                alert("Por favor, preencha o nome e o horário do remédio.");
-                return;
-            }
-
-            let continuo = true;
-            let dataTermino = "";
-            const hojeStr = obterDataAtual();
-
-            if (tipoTratamento === 'dias') {
-                continuo = false;
-                const qtdDias = parseInt(document.getElementById('novo-dias').value) || 1;
-                let dataFimObj = new Date();
-                dataFimObj.setDate(dataFimObj.getDate() + qtdDias);
-                dataTermino = dataFimObj.toISOString().split('T')[0];
-            }
-
-            const fotoPadrao = 'https://cdn-icons-png.flaticon.com/512/883/883397.png';
-            const fotoFinal = fotoBase64Global || fotoPadrao;
-
-            db.collection("medicamentos").add({
-                nome: nome,
-                horario: horario,
-                continuo: continuo,
-                dataTermino: dataTermino,
-                foto: fotoFinal,
-                status: "Pendente",
-                alertaUrgente: false,
-                horaTomado: "",
-                dataAtualizacao: hojeStr
-            }).then(() => {
-                document.getElementById('novo-nome').value = '';
-                document.getElementById('novo-horario').value = '';
-                document.getElementById('tipo-tratamento').value = 'continuo';
-                document.getElementById('grupo-dias').style.display = 'none';
-                document.getElementById('input-camera').value = '';
-                fotoBase64Global = "";
-                document.getElementById('preview-img').style.display = 'none';
-                document.getElementById('preview-text').style.display = 'none';
-                alert("Remédio cadastrado com sucesso!");
-            });
-        }
-
-        function deletarRemedio(id) {
-            if (confirm("Tem certeza que deseja remover este remédio?")) {
-                db.collection("medicamentos").doc(id).delete();
-            }
-        }
-
-        function alertarIdoso(id, nomeRemedio) {
-            db.collection("medicamentos").doc(id).update({
-                alertaUrgente: true
-            }).then(() => {
-                alert(`Alerta urgente enviado para o remédio: ${nomeRemedio}!`);
-            });
-        }
-
-        function tomarRemedio(id) {
-            pararAlarmeGeral();
-            const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-            
-            db.collection("medicamentos").doc(id).update({
-                status: "Tomado",
-                alertaUrgente: false,
-                horaTomado: horarioAtual,
-                dataAtualizacao: obterDataAtual()
-            });
-        }
-
-        db.collection("medicamentos").onSnapshot((querySnapshot) => {
-            let idosoHtml = "";
-            let cuidadorHtml = "";
-            const hoje = obterDataAtual();
-            let dispararAlarmeNoCliente = false;
-            let nomeRemedioUrgente = "";
-
-            if (querySnapshot.empty) {
-                idosoHtml = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado no momento.</p>";
-                cuidadorHtml = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado.</p>";
-            } else {
-                querySnapshot.forEach((doc) => {
-                    const med = doc.data();
-                    const id = doc.id;
-
-                    if (!med.continuo && med.dataTermino && hoje > med.dataTermino) {
-                        db.collection("medicamentos").doc(id).delete();
-                        return;
-                    }
-
-                    if (med.continuo && med.status === "Tomado" && med.dataAtualizacao !== hoje) {
-                        db.collection("medicamentos").doc(id).update({
-                            status: "Pendente",
-                            alertaUrgente: false,
-                            horaTomado: "",
-                            dataAtualizacao: hoje
-                        });
-                        return;
-                    }
-
-                    const isTomado = med.status === "Tomado";
-
-                    if (med.alertaUrgente && !isTomado) {
-                        dispararAlarmeNoCliente = true;
-                        nomeRemedioUrgente = med.nome;
-                    }
-
-                    let infoTratamento = med.continuo ? '• <i>(Uso Contínuo)</i>' : `• <i>(Até ${med.dataTermino.split('-').reverse().join('/')})</i>`;
-
-                    idosoHtml += `
-                        <div class="med-card-idoso">
-                            <img src="${med.foto}" alt="${med.nome}" class="med-img">
-                            <h3>${med.nome}</h3>
-                            <p>Horário: ${med.horario} <br>${infoTratamento}</p>
-                            <button id="btn-${id}" class="big-btn ${isTomado ? 'taken' : ''}" 
-                                    onclick="tomarRemedio('${id}')" 
-                                    ${isTomado ? 'disabled' : ''}>
-                                ${isTomado ? 'JÁ TOMEI ESTE REMÉDIO ✔️ (Tudo Certo!)' : 'HORA DE TOMAR O REMÉDIO!'}
-                            </button>
-                        </div>
-                    `;
-
-                    cuidadorHtml += `
-                        <div class="caregiver-item">
-                            <div style="flex: 1; min-width: 200px;">
-                                <img src="${med.foto}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 8px;">
-                                <strong>${med.nome}</strong> (${med.horario})<br>
-                                <span style="margin-left: 48px; font-size: 0.85rem; color: #475569;">
-                                    Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
-                                        ${isTomado ? 'Tomado às ' + med.horaTomado + ' ✅' : 'Pendente'}
-                                    </span>
-                                </span>
-                            </div>
-                            <div style="display: flex; gap: 5px;">
-                                ${!isTomado ? `<button class="btn-alertar" onclick="alertarIdoso('${id}', '${med.nome}')">🚨 ALERTAR IDOSO</button>` : ''}
-                                <button class="btn-delete" onclick="deletarRemedio('${id}')">Excluir</button>
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-
-            const idosoContainer = document.getElementById('idoso-meds-container');
-            const cuidadorContainer = document.getElementById('cuidador-list-container');
-            
-            if(idosoContainer) idosoContainer.innerHTML = idosoHtml;
-            if(cuidadorContainer) cuidadorContainer.innerHTML = cuidadorHtml;
-
-            if (dispararAlarmeNoCliente && localStorage.getItem('freetalk_perfil') === 'idoso') {
-                document.getElementById('texto-aviso-urgente').innerText = `O cuidador enviou um alerta urgente para tomar: ${nomeRemedioUrgente}!`;
-                document.getElementById('alerta-urgente-overlay').style.display = 'flex';
-                dispararAlarmeSonoroEContínuo();
-            }
-        });
     </script>
 </body>
 </html>
