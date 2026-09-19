@@ -209,7 +209,7 @@
     </style>
 </head>
 <body>
-    <!-- Ecrã de Alerta Urgente (Sobreposição Total Máxima com Botão Piscando) -->
+    <!-- Ecrã de Alerta Urgente (Sobreposição com Botão Piscando e JÁ TOMEI O REMÉDIO) -->
     <div id="alerta-urgente-overlay">
         <h2>🚨 HORA DO REMÉDIO! 🚨</h2>
         <p id="texto-aviso-urgente" style="font-size: 1.3rem; margin-bottom: 25px;">Está na hora de tomar o seu medicamento.</p>
@@ -407,26 +407,18 @@
         const messaging = firebase.messaging();
         auth.useDeviceLanguage();
 
-        // Registo do Service Worker e pedido de permissão para Push Notifications
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', async () => {
                 try {
                     const reg = await navigator.serviceWorker.register('sw.js');
                     console.log('Service Worker registado:', reg.scope);
 
-                    // Pede permissão para notificações push no telemóvel
                     const permissao = await Notification.requestPermission();
                     if (permissao === 'granted') {
-                        console.log('Permissão de notificação concedida.');
                         const token = await messaging.getToken({
                             serviceWorkerRegistration: reg,
-                            vapidKey: 'BOHsEw5V4vK35p0S53lY8G0_v1xZ3v5n6m7q8w9e0r1t2y3u4i5o6p7a8s9d0f1g2h3j4k5l6z7x8c9v0b' // VAPID placeholder key pública
-                        }).catch(e => console.log('Token FCM não gerado (requer chave VAPID no Console Firebase):', e));
-                        
-                        if (token) {
-                            console.log('Token FCM obtido:', token);
-                            // Aqui pode salvar o token no perfil do utilizador se necessário
-                        }
+                            vapidKey: 'BOHsEw5V4vK35p0S53lY8G0_v1xZ3v5n6m7q8w9e0r1t2y3u4i5o6p7a8s9d0f1g2h3j4k5l6z7x8c9v0b'
+                        }).catch(e => console.log('Token FCM não gerado:', e));
                     }
                 } catch (err) {
                     console.log('Erro ao registar Service Worker ou permissões:', err);
