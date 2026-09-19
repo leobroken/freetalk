@@ -31,6 +31,29 @@
             margin-bottom: 20px;
         }
         h1 { color: var(--primary); margin-bottom: 5px; }
+        
+        /* Estilo do Relógio e Data para o Idoso */
+        .clock-container {
+            background: #1e293b;
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        #live-clock {
+            font-size: 2.2rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+        #live-date {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            margin-top: 5px;
+            text-transform: capitalize;
+        }
+
         .tabs {
             display: flex;
             justify-content: center;
@@ -93,6 +116,7 @@
         }
         .big-btn.taken {
             background-color: var(--success);
+            cursor: not-allowed;
         }
         .caregiver-log {
             background: #f8fafc;
@@ -117,8 +141,14 @@
 
         <!-- ÁREA DO IDOSO -->
         <div id="section-idoso" class="section active">
+            <!-- Relógio e Data Bem Visíveis -->
+            <div class="clock-container">
+                <div id="live-clock">00:00:00</div>
+                <div id="live-date">Carregando data...</div>
+            </div>
+
             <h2>Seus Remédios de Hoje</h2>
-            <p>Toque no botão abaixo assim que tomar o seu remédio:</p>
+            <p id="instruction-text">Toque no botão abaixo assim que tomar o seu remédio:</p>
 
             <div class="med-card-idoso">
                 <h3>Synthroid 88mcg</h3>
@@ -153,19 +183,36 @@
     </div>
 
     <script>
-        // CONFIGURAÇÃO DO FIREBASE (SUBSTITUA PELOS DADOS DO SEU PROJETO)
+        // CONFIGURAÇÃO DO FIREBASE 
         const firebaseConfig = {
-            apiKey: "SUA_API_KEY_AQUI",
-            authDomain: "SEU_PROJETO.firebaseapp.com",
-            projectId: "SEU_PROJETO_ID",
-            storageBucket: "SEU_PROJETO.appspot.com",
-            messagingSenderId: "SEU_MESSAGING_ID",
-            appId: "SEU_APP_ID"
+            apiKey: "AIzaSyDRIwmrRhv0k88UYu69UkdVqG3hUib4Nq0",
+            authDomain: "free-talk-a4f07.firebaseapp.com",
+            projectId: "free-talk-a4f07",
+            storageBucket: "free-talk-a4f07.firebasestorage.app",
+            messagingSenderId: "179521983087",
+            appId: "1:179521983087:web:aa61e03e9b8b3f09d7b39a",
+            measurementId: "G-RS7JSGQTC1"
         };
 
-        // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+
+        // Relógio e Data em Tempo Real
+        function atualizarRelogio() {
+            const agora = new Date();
+            
+            // Hora formatada
+            const horas = String(agora.getHours()).padStart(2, '0');
+            const minutos = String(agora.getMinutes()).padStart(2, '0');
+            const segundos = String(agora.getSeconds()).padStart(2, '0');
+            document.getElementById('live-clock').innerText = `${horas}:${minutos}:${segundos}`;
+
+            // Data formatada (Ex: Sexta-feira, 19 de setembro de 2026)
+            const opcoes = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('live-date').innerText = agora.toLocaleDateString('pt-BR', opcoes);
+        }
+        setInterval(atualizarRelogio, 1000);
+        atualizarRelogio();
 
         function switchTab(tab) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -180,8 +227,13 @@
             }
         }
 
-        // Função para o Idoso confirmar que tomou (salva no Firestore)
+        // Função para o Idoso confirmar que tomou (Bloqueia repetição e avisa a nuvem)
         function tomarRemedio(medId, nome) {
+            const btn = document.getElementById(medId === 'med1' ? 'btn-med-1' : 'btn-med-2');
+            
+            // Se já estiver tomado, não faz nada para evitar duplo clique confuso
+            if (btn.classList.contains('taken')) return;
+
             const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             
             db.collection("medicamentos").doc(medId).set({
@@ -190,13 +242,13 @@
                 nome: nome,
                 atualizadoEm: new Date().toISOString()
             }).then(() => {
-                alert("Registrado com sucesso!");
+                // Feedback imediato local
             }).catch((error) => {
-                console.error("Erro ao salvar: ", error);
+                console.error("Erro ao guardar: ", error);
             });
         }
 
-        // Ouvinte em tempo real (Sincroniza automaticamente o painel do cuidador e o botão do idoso)
+        // Ouvinte em tempo real (Atualiza os botões e desativa lembretes visuais se já tomado)
         db.collection("medicamentos").onSnapshot((querySnapshot) => {
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
@@ -207,7 +259,7 @@
 
                 if (data.status === "Tomado") {
                     if (btn) {
-                        btn.innerText = "JÁ TOMEI ESTE REMÉDIO ✔️";
+                        btn.innerText = "JÁ TOMEI ESTE REMÉDIO ✔️ (Tudo Certo!)";
                         btn.classList.add('taken');
                     }
                     if (statusSpan) {
