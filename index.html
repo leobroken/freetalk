@@ -203,17 +203,18 @@
             background: rgba(220, 38, 38, 0.98); z-index: 2147483647; display: none;
             flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; padding: 20px; box-sizing: border-box;
             box-shadow: 0 0 100px rgba(0,0,0,0.9);
+            cursor: pointer;
         }
         #alerta-urgente-overlay h2 { font-size: 2.2rem; margin-bottom: 15px; animation: piscar 0.8s infinite alternate; }
         @keyframes piscar { from { opacity: 1; } to { opacity: 0.4; } }
     </style>
 </head>
 <body>
-    <!-- Ecrã de Alerta Urgente (Sobreposição com Botão Piscando e JÁ TOMEI O REMÉDIO) -->
-    <div id="alerta-urgente-overlay">
+    <!-- Ecrã de Alerta Urgente: Toque em qualquer lugar da tela confirma que já tomou -->
+    <div id="alerta-urgente-overlay" onclick="tocarTelaOuBotaoUrgente(event)">
         <h2>🚨 HORA DO REMÉDIO! 🚨</h2>
         <p id="texto-aviso-urgente" style="font-size: 1.3rem; margin-bottom: 25px;">Está na hora de tomar o seu medicamento.</p>
-        <button class="big-btn piscando" style="background: white; color: var(--danger); max-width: 400px; font-size: 1.4rem;" onclick="pararAlarmeGeral()">
+        <button class="big-btn piscando" style="background: white; color: var(--danger); max-width: 400px; font-size: 1.4rem;">
             JÁ TOMEI O REMÉDIO ✔️
         </button>
     </div>
@@ -437,6 +438,7 @@
         let visaoAtualCuidador = 'gestao';
         let codigoVinculoAtivoGlobal = '';
         let timeoutAlarmeIdoso = null;
+        let idMedicamentoPendenteUrgente = null;
 
         setInterval(() => {
             const agora = new Date();
@@ -696,6 +698,7 @@
                     const hoje = new Date().toISOString().split('T')[0];
                     let dispararAlarmeIdoso = false;
                     let nomeUrgente = "";
+                    let idEncontradoUrgente = null;
 
                     if (snapshot.empty) {
                         document.getElementById('idoso-meds-container').innerHTML = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado no momento.</p>";
@@ -746,10 +749,10 @@
                         }
 
                         let classeBotaoIdoso = "big-btn";
-                        // Dispara se chegou o horário OU se o cuidador acionou o aviso manual recente
                         if (!isTomado && (horaAtualMinutos >= horarioRemedioMinutos || med.alertaUrgente)) {
                             dispararAlarmeIdoso = true;
                             nomeUrgente = med.nome;
+                            idEncontradoUrgente = med.id;
                             classeBotaoIdoso += " piscando";
                         }
 
@@ -806,9 +809,10 @@
 
                     const perfilLogado = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
                     if (dispararAlarmeIdoso && (perfilLogado === 'idoso' || (perfilLogado !== 'idoso' && visaoAtualCuidador === 'idoso'))) {
+                        idMedicamentoPendenteUrgente = idEncontradoUrgente;
                         document.getElementById('texto-aviso-urgente').innerText = `Está na hora de tomar: ${nomeUrgente}!`;
                         document.getElementById('alerta-urgente-overlay').style.display = 'flex';
-                        iniciarCicloAlarme1MinutoExato();
+                        iniciarEsquemaAlarme1MinutoCom10s();
                     }
                 });
         }
@@ -891,9 +895,8 @@
                 alertaUrgente: true,
                 avisoEnviadoAoCuidador: true
             }).then(() => {
-                alert(`Alerta enviado ao idoso para o remédio: ${nome}! O alarme tocará novamente por 1 minuto.`);
+                alert(`Alerta enviado ao idoso para o remédio: ${nome}! O alarme tocará por 1 minuto (10s tocando / 10s parado).`);
                 
-                // Após 5 minutos, limpa a flag de aviso enviado para permitir novo toque se necessário
                 setTimeout(() => {
                     db.collection('medicamentos').doc(id).get().then((doc) => {
                         if (doc.exists && doc.data().status !== "Tomado") {
@@ -907,6 +910,15 @@
             });
         }
 
+        function tocarTelaOuBotaoUrgente(event) {
+            event.stopPropagation();
+            if (idMedicamentoPendenteUrgente) {
+                tomarRemedio(idMedicamentoPendenteUrgente);
+            } else {
+                pararAlarmeGeral();
+            }
+        }
+
         function tomarRemedio(id) {
             pararAlarmeGeral();
             const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
@@ -916,14 +928,17 @@
                 avisoEnviadoAoCuidador: false,
                 horaTomado: horarioAtual,
                 dataAtualizacao: new Date().toISOString().split('T')[0]
+            }).then(() => {
+                idMedicamentoPendenteUrgente = null;
             });
         }
 
-        // CICLO EXATO DE 1 MINUTO: 20s tocando -> 20s parado -> 20s tocando (Total: 60 segundos)
-        function iniciarCicloAlarme1MinutoExato() {
-            if (audioIntervaloID) return; // Evita sobreposição se já estiver a tocar
+        // ESQUEMA EXATO DE 1 MINUTO COM 10s TOCANDO / 10s PARADO:
+        // 0s-10s: Tocando | 10s-20s: Parado | 20s-30s: Tocando | 30s-40s: Parado | 40s-50s: Tocando | 50s-60s: Parado (Fim)
+        function iniciarEsquemaAlarme1MinutoCom10s() {
+            if (audioIntervaloID) return; // Evita sobreposição
 
-            const executarSomEVibracao = () => {
+            const dispararSomEVibracao = () => {
                 if (navigator.vibrate) {
                     navigator.vibrate([1000, 500, 1000, 500]);
                     vibracaoIntervaloID = setInterval(() => { navigator.vibrate([1000, 500]); }, 1500);
@@ -953,27 +968,36 @@
                 if (navigator.vibrate) { navigator.vibrate(0); }
             };
 
-            // Limpa qualquer agendamento anterior
             timeoutsAlarmeIds.forEach(id => clearTimeout(id));
             timeoutsAlarmeIds = [];
 
-            // Bloco 1: 0s a 20s (Tocando)
-            executarSomEVibracao();
+            // 0s a 10s: Tocando
+            dispararSomEVibracao();
 
-            // Bloco 2: 20s a 40s (Parado / Pausa)
+            // 10s a 20s: Parado
             timeoutsAlarmeIds.push(setTimeout(() => {
                 pararSomEVibracao();
+            }, 10000));
+
+            // 20s a 30s: Tocando
+            timeoutsAlarmeIds.push(setTimeout(() => {
+                dispararSomEVibracao();
             }, 20000));
 
-            // Bloco 3: 40s a 60s (Tocando novamente)
-            timeoutsAlarmeIds.push(setTimeout(() => {
-                executarSomEVibracao();
-            }, 40000));
-
-            // Fim do 1 minuto (60 segundos): Desliga tudo automaticamente
+            // 30s a 40s: Parado
             timeoutsAlarmeIds.push(setTimeout(() => {
                 pararSomEVibracao();
-            }, 60000));
+            }, 30000));
+
+            // 40s a 50s: Tocando
+            timeoutsAlarmeIds.push(setTimeout(() => {
+                dispararSomEVibracao();
+            }, 40000));
+
+            // 50s a 60s: Parado (Fim do 1 minuto)
+            timeoutsAlarmeIds.push(setTimeout(() => {
+                pararSomEVibracao();
+            }, 50000));
         }
 
         function pararAlarmeGeral() {
