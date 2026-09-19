@@ -1,40 +1,37 @@
-// Importa os scripts do Firebase para o Service Worker
-importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
-
-firebase.initializeApp({
-    apiKey: "AIzaSyBQv3TDnOAZq783UPVKwmsjyGOBE678IrE",
-    projectId: "free-talk-a4f07",
-    messagingSenderId: "179521983087",
-    appId: "1:179521983087:web:aa61e03e9b8b3f09d7b39a"
+self.addEventListener('install', (event) => {
+    self.skipWaiting();
 });
 
-const messaging = firebase.messaging();
+self.addEventListener('activate', (event) => {
+    event.waitUntil(clients.claim());
+});
 
-// Interceta mensagens push recebidas em segundo plano ou com app fechado
-messaging.onBackgroundMessage((payload) => {
-    console.log('[sw.js] Mensagem recebida em segundo plano: ', payload);
+// Mantém o Service Worker ativo e reage a mensagens de segundo plano
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'MANTER_ATIVO') {
+        console.log('[sw.js] Sinal de app ativo recebido.');
+    }
+});
 
-    const titulo = payload.notification ? payload.notification.title : "🚨 HORA DO REMÉDIO!";
-    const corpo = payload.notification ? payload.notification.body : "Está na hora de tomar o seu medicamento.";
-
+// Ouve disparos push vindos do servidor ou alarmes agendados
+self.addEventListener('push', (event) => {
+    const titulo = "🚨 HORA DO REMÉDIO!";
     const opcoes = {
-        body: corpo,
+        body: "Está na hora de tomar o seu medicamento. Toque em qualquer lugar da tela para confirmar.",
         icon: 'https://cdn-icons-png.flaticon.com/512/883/883397.png',
         badge: 'https://cdn-icons-png.flaticon.com/512/883/883397.png',
         vibrate: [1000, 500, 1000, 500, 1000],
         tag: 'alarme-remedio-urgente',
         renotify: true,
-        requireInteraction: true, // Mantém a notificação no ecrã até que o idoso interaja
-        actions: [
-            { action: 'tomar', title: '✔️ JÁ TOMEI' }
-        ]
+        requireInteraction: true
     };
 
-    self.registration.showNotification(titulo, opcoes);
+    event.waitUntil(
+        self.registration.showNotification(titulo, opcoes)
+    );
 });
 
-// Ação ao clicar na notificação ou no botão dela
+// Ação ao tocar na notificação: abre o app e dá foco imediato
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     event.waitUntil(

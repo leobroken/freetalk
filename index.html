@@ -408,6 +408,24 @@
         const messaging = firebase.messaging();
         auth.useDeviceLanguage();
 
+        // Ativa o Wake Lock para manter o app acordado e envia batimento contínuo ao Service Worker
+        async function ativarPersistenciaEAtividade() {
+            if ('wakeLock' in navigator) {
+                try {
+                    await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock ativado com sucesso.');
+                } catch (err) {
+                    console.log('Erro ao ativar Wake Lock:', err);
+                }
+            }
+
+            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                setInterval(() => {
+                    navigator.serviceWorker.controller.postMessage({ type: 'MANTER_ATIVO' });
+                }, 20000);
+            }
+        }
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', async () => {
                 try {
@@ -421,6 +439,8 @@
                             vapidKey: 'BOHsEw5V4vK35p0S53lY8G0_v1xZ3v5n6m7q8w9e0r1t2y3u4i5o6p7a8s9d0f1g2h3j4k5l6z7x8c9v0b'
                         }).catch(e => console.log('Token FCM não gerado:', e));
                     }
+
+                    ativarPersistenciaEAtividade();
                 } catch (err) {
                     console.log('Erro ao registar Service Worker ou permissões:', err);
                 }
@@ -933,10 +953,9 @@
             });
         }
 
-        // ESQUEMA EXATO DE 1 MINUTO COM 10s TOCANDO / 10s PARADO:
-        // 0s-10s: Tocando | 10s-20s: Parado | 20s-30s: Tocando | 30s-40s: Parado | 40s-50s: Tocando | 50s-60s: Parado (Fim)
+        // ESQUEMA EXATO DE 1 MINUTO COM 10s TOCANDO / 10s PARADO
         function iniciarEsquemaAlarme1MinutoCom10s() {
-            if (audioIntervaloID) return; // Evita sobreposição
+            if (audioIntervaloID) return;
 
             const dispararSomEVibracao = () => {
                 if (navigator.vibrate) {
