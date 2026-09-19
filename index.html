@@ -431,8 +431,8 @@
         let unsubscribeMedicamentos = null;
         let fotoBase64Global = "";
         let audioIntervaloID = null;
-        let cicloIntervaloID = null;
         let vibracaoIntervaloID = null;
+        let timeoutsAlarmeIds = [];
         let tipoVinculoAtual = '';
         let visaoAtualCuidador = 'gestao';
         let codigoVinculoAtivoGlobal = '';
@@ -746,19 +746,11 @@
                         }
 
                         let classeBotaoIdoso = "big-btn";
+                        // Dispara se chegou o horário OU se o cuidador acionou o aviso manual recente
                         if (!isTomado && (horaAtualMinutos >= horarioRemedioMinutos || med.alertaUrgente)) {
                             dispararAlarmeIdoso = true;
                             nomeUrgente = med.nome;
                             classeBotaoIdoso += " piscando";
-
-                            if (horaAtualMinutos >= horarioRemedioMinutos && !timeoutAlarmeIdoso && !med.alertaUrgente) {
-                                timeoutAlarmeIdoso = setTimeout(() => {
-                                    db.collection('medicamentos').doc(med.id).update({
-                                        alertaUrgente: true,
-                                        avisoEnviadoAoCuidador: true
-                                    });
-                                }, 60000);
-                            }
                         }
 
                         let infoTratamento = med.continuo ? '• <i>(Uso Contínuo)</i>' : `• <i>(Até ${med.dataTermino.split('-').reverse().join('/')})</i>`;
@@ -816,7 +808,7 @@
                     if (dispararAlarmeIdoso && (perfilLogado === 'idoso' || (perfilLogado !== 'idoso' && visaoAtualCuidador === 'idoso'))) {
                         document.getElementById('texto-aviso-urgente').innerText = `Está na hora de tomar: ${nomeUrgente}!`;
                         document.getElementById('alerta-urgente-overlay').style.display = 'flex';
-                        iniciarCicloAlarme20s();
+                        iniciarCicloAlarme1MinutoExato();
                     }
                 });
         }
@@ -899,12 +891,16 @@
                 alertaUrgente: true,
                 avisoEnviadoAoCuidador: true
             }).then(() => {
-                alert(`Alerta enviado ao idoso para o remédio: ${nome}! O botão alterou para IDOSO AVISADO.`);
+                alert(`Alerta enviado ao idoso para o remédio: ${nome}! O alarme tocará novamente por 1 minuto.`);
                 
+                // Após 5 minutos, limpa a flag de aviso enviado para permitir novo toque se necessário
                 setTimeout(() => {
                     db.collection('medicamentos').doc(id).get().then((doc) => {
                         if (doc.exists && doc.data().status !== "Tomado") {
-                            db.collection('medicamentos').doc(id).update({ avisoEnviadoAoCuidador: false });
+                            db.collection('medicamentos').doc(id).update({ 
+                                avisoEnviadoAoCuidador: false,
+                                alertaUrgente: false 
+                            });
                         }
                     });
                 }, 300000);
@@ -913,7 +909,6 @@
 
         function tomarRemedio(id) {
             pararAlarmeGeral();
-            if (timeoutAlarmeIdoso) { clearTimeout(timeoutAlarmeIdoso); timeoutAlarmeIdoso = null; }
             const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             db.collection('medicamentos').doc(id).update({
                 status: "Tomado",
@@ -924,8 +919,9 @@
             });
         }
 
-        function iniciarCicloAlarme20s() {
-            if (cicloIntervaloID) return;
+        // CICLO EXATO DE 1 MINUTO: 20s tocando -> 20s parado -> 20s tocando (Total: 60 segundos)
+        function iniciarCicloAlarme1MinutoExato() {
+            if (audioIntervaloID) return; // Evita sobreposição se já estiver a tocar
 
             const executarSomEVibracao = () => {
                 if (navigator.vibrate) {
@@ -957,22 +953,34 @@
                 if (navigator.vibrate) { navigator.vibrate(0); }
             };
 
+            // Limpa qualquer agendamento anterior
+            timeoutsAlarmeIds.forEach(id => clearTimeout(id));
+            timeoutsAlarmeIds = [];
+
+            // Bloco 1: 0s a 20s (Tocando)
             executarSomEVibracao();
 
-            cicloIntervaloID = setInterval(() => {
+            // Bloco 2: 20s a 40s (Parado / Pausa)
+            timeoutsAlarmeIds.push(setTimeout(() => {
                 pararSomEVibracao();
-                setTimeout(() => {
-                    if (document.getElementById('alerta-urgente-overlay').style.display === 'flex') {
-                        executarSomEVibracao();
-                    }
-                }, 20000);
-            }, 40000);
+            }, 20000));
+
+            // Bloco 3: 40s a 60s (Tocando novamente)
+            timeoutsAlarmeIds.push(setTimeout(() => {
+                executarSomEVibracao();
+            }, 40000));
+
+            // Fim do 1 minuto (60 segundos): Desliga tudo automaticamente
+            timeoutsAlarmeIds.push(setTimeout(() => {
+                pararSomEVibracao();
+            }, 60000));
         }
 
         function pararAlarmeGeral() {
             if (audioIntervaloID) { clearInterval(audioIntervaloID); audioIntervaloID = null; }
             if (vibracaoIntervaloID) { clearInterval(vibracaoIntervaloID); vibracaoIntervaloID = null; }
-            if (cicloIntervaloID) { clearInterval(cicloIntervaloID); cicloIntervaloID = null; }
+            timeoutsAlarmeIds.forEach(id => clearTimeout(id));
+            timeoutsAlarmeIds = [];
             if (navigator.vibrate) { navigator.vibrate(0); }
             document.getElementById('alerta-urgente-overlay').style.display = 'none';
         }
