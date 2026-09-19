@@ -243,7 +243,7 @@
         <!-- ETAPA 2: CADASTRO COMPLEMENTAR (Nome e Data de Nascimento) -->
         <div id="tela-cadastro-dados" class="card-box" style="display: none;">
             <h2>Complete o seu Cadastro</h2>
-            <p style="color: #64748b; font-size: 0.95rem;">Precisamos de vosso nome e data de nascimento para identificação.</p>
+            <p style="color: #64748b; font-size: 0.95rem;">Precisamos do seu nome e data de nascimento para identificação.</p>
             <div class="form-group">
                 <label>Nome Completo:</label>
                 <input type="text" id="user-nome" placeholder="Ex: Maria da Silva">
@@ -355,7 +355,7 @@
 
     <script>
         const firebaseConfig = {
-            apiKey: "AIzaSyDRIwmrRhv0k88UYu69UkdVqG3hUib4Nq0",
+            apiKey: "AIzaSyBQv3TDnOAZq783UPVKwmsjyGOBE678IrE",
             authDomain: "free-talk-a4f07.firebaseapp.com",
             projectId: "free-talk-a4f07",
             storageBucket: "free-talk-a4f07.firebasestorage.app",
@@ -367,6 +367,7 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
+        auth.useDeviceLanguage();
 
         let utilizadorAtual = null;
         let dadosUtilizador = null;
@@ -375,7 +376,6 @@
         let audioIntervalo = null;
         let vibracaoIntervalo = null;
 
-        // Observar Estado de Autenticação do Firebase
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 utilizadorAtual = user;
@@ -397,7 +397,6 @@
             });
         }
 
-        // Funções de Autenticação (Google e E-mail)
         function loginGoogle() {
             const provider = new firebase.auth.GoogleAuthProvider();
             auth.signInWithPopup(provider).catch(err => alert("Erro ao entrar com Google: " + err.message));
@@ -424,7 +423,6 @@
             auth.signOut();
         }
 
-        // Verificar se já preencheu Nome e Nascimento no Firestore
         async function verificarDadosPerfil(uid) {
             const docRef = db.collection('utilizadores').doc(uid);
             const docSnap = await docRef.get();
@@ -459,7 +457,6 @@
                 esconderTodasAsTelas();
                 document.getElementById('tela-perfil-selector').style.display = 'block';
             } else {
-                // Se for idoso, verifica se já está vinculado a um código de cuidador
                 if (perfilSalvo === 'idoso') {
                     verificarVinculoIdoso();
                 } else {
@@ -472,12 +469,10 @@
             localStorage.setItem(`freetalk_perfil_${utilizadorAtual.uid}`, perfil);
             
             if (perfil === 'cuidador') {
-                // Gera ou recupera o código de vínculo do cuidador
                 let codigo = localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`);
                 if (!codigo) {
                     codigo = 'FREE-' + Math.floor(1000 + Math.random() * 9000);
                     localStorage.setItem(`freetalk_codigo_${utilizadorAtual.uid}`, codigo);
-                    // Salva no Firestore para que o idoso consiga encontrar
                     await db.collection('vinculos').doc(codigo).set({ cuidadorUid: utilizadorAtual.uid });
                 }
                 carregarPainelPrincipal('cuidador');
@@ -540,7 +535,6 @@
             alert("Código copiado para a área de transferência!");
         }
 
-        // Lógica de Medicamentos em Tempo Real baseada no Código de Vínculo
         function escutarMedicamentos(codigoVinculo) {
             if (unsubscribeMedicamentos) unsubscribeMedicamentos();
 
@@ -626,7 +620,6 @@
                 });
         }
 
-        // Funções de Gestão de Remédios
         function alternarDiasTratamento() {
             const tipo = document.getElementById('tipo-tratamento').value;
             document.getElementById('grupo-dias').style.display = (tipo === 'dias') ? 'block' : 'none';
