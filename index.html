@@ -144,12 +144,13 @@
             font-weight: bold;
             margin-bottom: 5px;
         }
-        .form-group input {
+        .form-group input, .form-group select {
             width: 100%;
             padding: 10px;
             border: 1px solid #cbd5e1;
             border-radius: 8px;
             box-sizing: border-box;
+            background: white;
         }
         .btn-add {
             background: var(--success);
@@ -213,7 +214,7 @@
         <!-- ÁREA DO CUIDADOR -->
         <div id="section-cuidador" class="section">
             <h2>Gestão de Medicamentos</h2>
-            <p>Adicione novos remédios (com foto opcional pela câmara) ou remova itens:</p>
+            <p>Adicione remédios (com opção de uso contínuo e foto pela câmara):</p>
             
             <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <h3>Cadastrar Novo Remédio</h3>
@@ -226,8 +227,15 @@
                     <input type="text" id="novo-horario" placeholder="Ex: 08:00 (Jejum)">
                 </div>
                 <div class="form-group">
-                    <label>Foto do Remédio (Opcional - Tire com a câmara ou escolha do celular):</label>
-                    <input type="file" id="novo-foto" accept="image/*" capture="environment" style="background: white; padding: 8px;">
+                    <label>Tipo de Tratamento:</label>
+                    <select id="novo-continuo">
+                        <option value="sim">Repetir Todos os Dias (Contínuo)</option>
+                        <option value="nao">Uso Único / Apenas Hoje</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Foto do Remédio (Opcional - Câmara ou Galeria):</label>
+                    <input type="file" id="novo-foto" accept="image/*" capture="environment" style="padding: 8px;">
                 </div>
                 <button class="btn-add" onclick="adicionarRemedio()">Adicionar Remédio</button>
             </div>
@@ -281,10 +289,16 @@
             }
         }
 
-        // Função do Cuidador: Adicionar Novo Remédio com Foto Opcional via Câmara
+        function obterDataAtual() {
+            const d = new Date();
+            return d.toISOString().split('T')[0]; // Retorna formato "YYYY-MM-DD"
+        }
+
+        // Adicionar Remédio com Suporte a Contínuo e Foto
         function adicionarRemedio() {
             const nome = document.getElementById('novo-nome').value.trim();
             const horario = document.getElementById('novo-horario').value.trim();
+            const continuo = document.getElementById('novo-continuo').value === 'sim';
             const inputFoto = document.getElementById('novo-foto');
 
             if (!nome || !horario) {
@@ -292,27 +306,28 @@
                 return;
             }
 
-            // Ícone padrão caso nenhuma foto seja tirada/enviada
             const fotoPadrao = 'https://cdn-icons-png.flaticon.com/512/883/883397.png';
 
             if (inputFoto.files && inputFoto.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    salvarNoFirebase(nome, horario, e.target.result);
+                    salvarNoFirebase(nome, horario, continuo, e.target.result);
                 };
                 reader.readAsDataURL(inputFoto.files[0]);
             } else {
-                salvarNoFirebase(nome, horario, fotoPadrao);
+                salvarNoFirebase(nome, horario, continuo, fotoPadrao);
             }
         }
 
-        function salvarNoFirebase(nome, horario, fotoUrl) {
+        function salvarNoFirebase(nome, horario, continuo, fotoUrl) {
             db.collection("medicamentos").add({
                 nome: nome,
                 horario: horario,
+                continuo: continuo,
                 foto: fotoUrl,
                 status: "Pendente",
-                horaTomado: ""
+                horaTomado: "",
+                dataAtualizacao: obterDataAtual()
             }).then(() => {
                 document.getElementById('novo-nome').value = '';
                 document.getElementById('novo-horario').value = '';
@@ -320,11 +335,9 @@
                 alert("Remédio cadastrado com sucesso!");
             }).catch((error) => {
                 console.error("Erro ao adicionar: ", error);
-                alert("Erro ao cadastrar remédio.");
             });
         }
 
-        // Função do Cuidador: Deletar Remédio
         function deletarRemedio(id) {
             if (confirm("Tem certeza que deseja remover este remédio?")) {
                 db.collection("medicamentos").doc(id).delete().catch((error) => {
@@ -333,20 +346,21 @@
             }
         }
 
-        // Função do Idoso: Marcar como Tomado
         function tomarRemedio(id) {
             const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             
             db.collection("medicamentos").doc(id).update({
                 status: "Tomado",
-                horaTomado: horarioAtual
+                horaTomado: horarioAtual,
+                dataAtualizacao: obterDataAtual()
             });
         }
 
-        // Sincronização em Tempo Real (Firestore)
+        // Sincronização e Verificação de Reset Diário Automático
         db.collection("medicamentos").onSnapshot((querySnapshot) => {
             let idosoHtml = "";
             let cuidadorHtml = "";
+            const hoje = obterDataAtual();
 
             if (querySnapshot.empty) {
                 idosoHtml = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado no momento.</p>";
@@ -355,13 +369,25 @@
                 querySnapshot.forEach((doc) => {
                     const med = doc.data();
                     const id = doc.id;
+
+                    // VERIFICAÇÃO DE RESET DIÁRIO PARA REMÉDIOS CONTÍNUOS
+                    if (med.continuo && med.status === "Tomado" && med.dataAtualizacao !== hoje) {
+                        // O dia mudou e o remédio é contínuo! Reseta automaticamente na nuvem:
+                        db.collection("medicamentos").doc(id).update({
+                            status: "Pendente",
+                            horaTomado: "",
+                            dataAtualizacao: hoje
+                        });
+                        return; // Pula esta execução para atualizar na próxima recarga
+                    }
+
                     const isTomado = med.status === "Tomado";
 
                     idosoHtml += `
                         <div class="med-card-idoso">
                             <img src="${med.foto}" alt="${med.nome}" class="med-img">
                             <h3>${med.nome}</h3>
-                            <p>Horário: ${med.horario}</p>
+                            <p>Horário: ${med.horario} ${med.continuo ? '• <i>(Uso Contínuo)</i>' : ''}</p>
                             <button id="btn-${id}" class="big-btn ${isTomado ? 'taken' : ''}" 
                                     onclick="tomarRemedio('${id}')" 
                                     ${isTomado ? 'disabled' : ''}>
@@ -373,7 +399,7 @@
                     cuidadorHtml += `
                         <div class="caregiver-item">
                             <div>
-                                <strong>${med.nome}</strong> (${med.horario})<br>
+                                <strong>${med.nome}</strong> (${med.horario}) ${med.continuo ? '🔄 [Contínuo]' : ''}<br>
                                 Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
                                     ${isTomado ? 'Tomado às ' + med.horaTomado + ' ✅' : '⏳ Pendente'}
                                 </span>
