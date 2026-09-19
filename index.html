@@ -66,7 +66,6 @@
         .btn-profile.idoso { background-color: var(--primary); }
         .btn-profile.cuidador { background-color: var(--success); }
 
-        /* Botão exclusivo do Cuidador para trocar de perfil */
         .btn-trocar-perfil {
             background: #64748b;
             color: white;
@@ -80,7 +79,6 @@
             top: 5px;
         }
 
-        /* Relógio e Data */
         .clock-container {
             background: #1e293b;
             color: white;
@@ -109,6 +107,7 @@
             border-radius: 10px;
             text-align: center;
             margin-bottom: 20px;
+            display: none; /* Controlado via código se já foi autorizado */
         }
         .btn-notif {
             background: var(--primary);
@@ -133,7 +132,6 @@
             display: block;
         }
         
-        /* Cards de Medicamentos */
         .med-card-idoso {
             background: #f1f5f9;
             border-radius: 12px;
@@ -181,7 +179,6 @@
             cursor: not-allowed;
         }
 
-        /* Formulário e itens do Cuidador */
         .form-group {
             margin-bottom: 15px;
             text-align: left;
@@ -274,7 +271,6 @@
             font-size: 0.85rem;
         }
 
-        /* Modal / Alerta visual urgente para o Idoso */
         #alerta-urgente-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -301,7 +297,6 @@
     </style>
 </head>
 <body>
-    <!-- Ecrã de Alerta Urgente para o Idoso -->
     <div id="alerta-urgente-overlay">
         <h2>🚨 ATENÇÃO! HORA DO REMÉDIO! 🚨</h2>
         <p id="texto-aviso-urgente" style="font-size: 1.3rem; margin-bottom: 25px;">O cuidador enviou um alerta urgente.</p>
@@ -310,7 +305,7 @@
         </button>
     </div>
 
-    <!-- TELA 1: SELECÇÃO DE PERFIL -->
+    <!-- TELA DE SELECÇÃO DE PERFIL -->
     <div id="profile-selector" class="container">
         <h1>Free Talk</h1>
         <p style="color: #64748b; font-size: 1.1rem;">Selecione o seu perfil para entrar na aplicação:</p>
@@ -332,6 +327,7 @@
             <p id="subtitulo-perfil">Cuidado e Memória em Tempo Real</p>
         </header>
 
+        <!-- Banner de Notificações (Só aparece se ainda não foi autorizado) -->
         <div class="notification-banner" id="notif-banner">
             <span style="font-size: 0.95rem; color: #1e293b;">🔔 Deseja ativar avisos no telemóvel?</span><br>
             <button class="btn-notif" onclick="pedirPermissaoNotificacao()">Ativar Notificações Push</button>
@@ -426,7 +422,35 @@
             if (perfilSalvo) {
                 carregarPainelPerfil(perfilSalvo);
             }
+            verificarPermissaoNotificacaoAutomatica();
         });
+
+        // Verifica se o navegador já tem permissão concedida
+        function verificarPermissaoNotificacaoAutomatica() {
+            if (!('Notification' in window)) return;
+
+            if (Notification.permission === 'granted') {
+                // Já autorizado! Esconde o banner permanentemente
+                document.getElementById('notif-banner').style.display = 'none';
+            } else if (Notification.permission === 'default') {
+                // Ainda não decidiu, mostra o banner para perguntar
+                document.getElementById('notif-banner').style.display = 'block';
+            } else {
+                // Negado
+                document.getElementById('notif-banner').style.display = 'none';
+            }
+        }
+
+        function pedirPermissaoNotificacao() {
+            Notification.requestPermission().then((permission) => {
+                if (permission === 'granted') {
+                    alert('Notificações ativadas com sucesso!');
+                    document.getElementById('notif-banner').style.display = 'none';
+                } else {
+                    alert('Permissão de notificação negada nas configurações do navegador.');
+                }
+            });
+        }
 
         function selecionarPerfil(perfil) {
             localStorage.setItem('freetalk_perfil', perfil);
@@ -446,13 +470,11 @@
                 document.getElementById('section-idoso').classList.add('active');
                 document.getElementById('section-cuidador').classList.remove('active');
                 document.getElementById('subtitulo-perfil').innerText = "Área do Idoso";
-                // Oculta botão de trocar perfil no painel do idoso
                 document.getElementById('btn-trocar-container').style.display = 'none';
             } else {
                 document.getElementById('section-cuidador').classList.add('active');
                 document.getElementById('section-idoso').classList.remove('active');
                 document.getElementById('subtitulo-perfil').innerText = "Painel de Gestão do Cuidador";
-                // Mostra botão de trocar perfil apenas no painel do cuidador
                 document.getElementById('btn-trocar-container').style.display = 'block';
             }
         }
@@ -507,17 +529,6 @@
         function obterDataAtual() {
             const d = new Date();
             return d.toISOString().split('T')[0];
-        }
-
-        function pedirPermissaoNotificacao() {
-            Notification.requestPermission().then((permission) => {
-                if (permission === 'granted') {
-                    alert('Notificações ativadas com sucesso!');
-                    document.getElementById('notif-banner').style.display = 'none';
-                } else {
-                    alert('Permissão de notificação negada.');
-                }
-            });
         }
 
         function alternarDiasTratamento() {
