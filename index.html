@@ -399,6 +399,20 @@
         let visaoAtualCuidador = 'gestao';
         let codigoVinculoAtivoGlobal = '';
 
+        // Relógio Dinâmico Global (atualiza a cada segundo para Idoso e Cuidador)
+        setInterval(() => {
+            const agora = new Date();
+            const horas = agora.toLocaleTimeString('pt-BR');
+            const opcoesData = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const dataFormatada = agora.toLocaleDateString('pt-BR', opcoesData);
+            
+            const elementoClock = document.getElementById('live-clock');
+            const elementoDate = document.getElementById('live-date');
+            
+            if (elementoClock) elementoClock.innerText = horas;
+            if (elementoDate) elementoDate.innerText = dataFormatada;
+        }, 1000);
+
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 utilizadorAtual = user;
