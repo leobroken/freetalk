@@ -66,7 +66,8 @@
         .btn-profile.idoso { background-color: var(--primary); }
         .btn-profile.cuidador { background-color: var(--success); }
 
-        .btn-trocar-perfil {
+        /* Botões de navegação de perfil */
+        .btn-acao-topo {
             background: #64748b;
             color: white;
             border: none;
@@ -75,9 +76,10 @@
             font-size: 0.8rem;
             cursor: pointer;
             position: absolute;
-            right: 0;
             top: 5px;
         }
+        #btn-trocar-container { right: 0; }
+        #btn-voltar-cuidador { left: 0; background: var(--success); display: none; }
 
         .clock-container {
             background: #1e293b;
@@ -107,7 +109,7 @@
             border-radius: 10px;
             text-align: center;
             margin-bottom: 20px;
-            display: none; /* Controlado via código se já foi autorizado */
+            display: none;
         }
         .btn-notif {
             background: var(--primary);
@@ -322,12 +324,12 @@
     <!-- TELA PRINCIPAL DA APLICAÇÃO -->
     <div id="main-app" class="container" style="display: none;">
         <header>
-            <button id="btn-trocar-container" class="btn-trocar-perfil" style="display: none;" onclick="esquecerPerfil()">🔄 Trocar Perfil</button>
+            <button id="btn-voltar-cuidador" class="btn-acao-topo" onclick="mudarParaPainelCuidador()">📋 Painel Cuidador</button>
+            <button id="btn-trocar-container" class="btn-acao-topo" onclick="esquecerPerfil()">🔄 Trocar Perfil</button>
             <h1>Free Talk</h1>
             <p id="subtitulo-perfil">Cuidado e Memória em Tempo Real</p>
         </header>
 
-        <!-- Banner de Notificações (Só aparece se ainda não foi autorizado) -->
         <div class="notification-banner" id="notif-banner">
             <span style="font-size: 0.95rem; color: #1e293b;">🔔 Deseja ativar avisos no telemóvel?</span><br>
             <button class="btn-notif" onclick="pedirPermissaoNotificacao()">Ativar Notificações Push</button>
@@ -425,18 +427,13 @@
             verificarPermissaoNotificacaoAutomatica();
         });
 
-        // Verifica se o navegador já tem permissão concedida
         function verificarPermissaoNotificacaoAutomatica() {
             if (!('Notification' in window)) return;
-
             if (Notification.permission === 'granted') {
-                // Já autorizado! Esconde o banner permanentemente
                 document.getElementById('notif-banner').style.display = 'none';
             } else if (Notification.permission === 'default') {
-                // Ainda não decidiu, mostra o banner para perguntar
                 document.getElementById('notif-banner').style.display = 'block';
             } else {
-                // Negado
                 document.getElementById('notif-banner').style.display = 'none';
             }
         }
@@ -453,29 +450,50 @@
         }
 
         function selecionarPerfil(perfil) {
+            // Guarda o perfil raiz do dispositivo (marca que este aparelho pertence ao cuidador se escolhido primeiro)
+            if (!localStorage.getItem('freetalk_perfil_raiz')) {
+                localStorage.setItem('freetalk_perfil_raiz', perfil);
+            }
             localStorage.setItem('freetalk_perfil', perfil);
             carregarPainelPerfil(perfil);
         }
 
         function esquecerPerfil() {
             localStorage.removeItem('freetalk_perfil');
+            localStorage.removeItem('freetalk_perfil_raiz');
             location.reload();
+        }
+
+        // Se o dispositivo foi registado originalmente como cuidador, permite voltar ao painel de gestão mesmo estando no idoso
+        function mudarParaPainelCuidador() {
+            localStorage.setItem('freetalk_perfil', 'cuidador');
+            carregarPainelPerfil('cuidador');
         }
 
         function carregarPainelPerfil(perfil) {
             document.getElementById('profile-selector').style.display = 'none';
             document.getElementById('main-app').style.display = 'block';
 
+            const perfilRaiz = localStorage.getItem('freetalk_perfil_raiz');
+
             if (perfil === 'idoso') {
                 document.getElementById('section-idoso').classList.add('active');
                 document.getElementById('section-cuidador').classList.remove('active');
                 document.getElementById('subtitulo-perfil').innerText = "Área do Idoso";
                 document.getElementById('btn-trocar-container').style.display = 'none';
+
+                // Se o dispositivo pertence ao Cuidador, mostra um botão discreto para voltar ao painel de gestão
+                if (perfilRaiz === 'cuidador') {
+                    document.getElementById('btn-voltar-cuidador').style.display = 'block';
+                } else {
+                    document.getElementById('btn-voltar-cuidador').style.display = 'none';
+                }
             } else {
                 document.getElementById('section-cuidador').classList.add('active');
                 document.getElementById('section-idoso').classList.remove('active');
                 document.getElementById('subtitulo-perfil').innerText = "Painel de Gestão do Cuidador";
                 document.getElementById('btn-trocar-container').style.display = 'block';
+                document.getElementById('btn-voltar-cuidador').style.display = 'none';
             }
         }
 
