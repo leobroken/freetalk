@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Free Talk - Controle de Medicamentos</title>
-    <!-- Importando o Firebase SDK (App, Firestore e Messaging) -->
+    <!-- Importando o Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
@@ -56,7 +56,6 @@
             text-transform: capitalize;
         }
 
-        /* Botão Global de Ativar Notificações */
         .notification-banner {
             background: #eff6ff;
             border: 2px dashed var(--primary);
@@ -156,7 +155,7 @@
             cursor: not-allowed;
         }
 
-        /* Formulário de Cadastro do Cuidador */
+        /* Formulário e itens do Cuidador */
         .form-group {
             margin-bottom: 15px;
             text-align: left;
@@ -225,8 +224,10 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
-        .btn-delete {
+        .btn-alertar {
             background: var(--danger);
             color: white;
             border: none;
@@ -234,19 +235,63 @@
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
+            font-size: 0.85rem;
+        }
+        .btn-delete {
+            background: #64748b;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+
+        /* Modal / Alerta visual urgente para o Idoso */
+        #alerta-urgente-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(220, 38, 38, 0.92);
+            z-index: 9999;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #alerta-urgente-overlay h2 {
+            font-size: 2.2rem;
+            margin-bottom: 15px;
+            animation: piscar 0.8s infinite alternate;
+        }
+        @keyframes piscar {
+            from { opacity: 1; }
+            to { opacity: 0.4; }
         }
     </style>
 </head>
 <body>
+    <!-- Ecrã de Alerta Urgente para o Idoso (Disparado pelo Cuidador) -->
+    <div id="alerta-urgente-overlay">
+        <h2>🚨 ATENÇÃO! HORA DO REMÉDIO! 🚨</h2>
+        <p id="texto-aviso-urgente" style="font-size: 1.3rem; margin-bottom: 25px;">O cuidador enviou um alerta urgente para tomar o medicamento.</p>
+        <button class="big-btn" style="background: white; color: var(--danger); max-width: 400px;" onclick="pararAlarmeGeral()">
+            JÁ TOMEI O REMÉDIO ✔️ (Parar Alarme)
+        </button>
+    </div>
+
     <div class="container">
         <header>
             <h1>Free Talk</h1>
             <p>Cuidado e Memória em Tempo Real</p>
         </header>
 
-        <!-- Barra de Ativação de Notificações -->
         <div class="notification-banner" id="notif-banner">
-            <span style="font-size: 0.95rem; color: #1e293b;">🔔 Deseja receber avisos de remédios no telemóvel?</span><br>
+            <span style="font-size: 0.95rem; color: #1e293b;">🔔 Deseja ativar avisos no telemóvel?</span><br>
             <button class="btn-notif" onclick="pedirPermissaoNotificacao()">Ativar Notificações Push</button>
         </div>
 
@@ -273,17 +318,17 @@
         <!-- ÁREA DO CUIDADOR -->
         <div id="section-cuidador" class="section">
             <h2>Gestão de Medicamentos</h2>
-            <p>Adicione novos remédios configurando a duração e foto:</p>
+            <p>Adicione remédios e envie alertas de urgência se necessário:</p>
             
             <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <h3>Cadastrar Novo Remédio</h3>
                 <div class="form-group">
                     <label>Nome do Remédio e Dosagem:</label>
-                    <input type="text" id="novo-nome" placeholder="Ex: Amoxicilina 500mg">
+                    <input type="text" id="novo-nome" placeholder="Ex: Losartana 50mg">
                 </div>
                 <div class="form-group">
                     <label>Horário:</label>
-                    <input type="text" id="novo-horario" placeholder="Ex: 12:00 (Após o almoço)">
+                    <input type="text" id="novo-horario" placeholder="Ex: 08:00">
                 </div>
                 <div class="form-group">
                     <label>Tipo de Tratamento:</label>
@@ -295,7 +340,7 @@
                 
                 <div class="form-group" id="grupo-dias" style="display: none;">
                     <label>Quantos dias vai tomar?</label>
-                    <input type="number" id="novo-dias" min="1" max="365" value="5" placeholder="Ex: 7">
+                    <input type="number" id="novo-dias" min="1" max="365" value="5">
                 </div>
 
                 <div class="form-group">
@@ -321,7 +366,6 @@
     </div>
 
     <script>
-        // CONFIGURAÇÃO DO FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyDRIwmrRhv0k88UYu69UkdVqG3hUib4Nq0",
             authDomain: "free-talk-a4f07.firebaseapp.com",
@@ -337,37 +381,56 @@
         const messaging = firebase.messaging();
 
         let fotoBase64Global = "";
+        let audioIntervalo = null;
+        let vibracaoIntervalo = null;
 
-        // Registo do Service Worker para Notificações em Segundo Plano
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/firebase-messaging-sw.js')
-                .then((registration) => {
-                    console.log('Service Worker registado com sucesso:', registration);
-                    messaging.useServiceWorker(registration);
-                }).catch((err) => {
-                    console.log('Falha ao registar o Service Worker:', err);
-                });
+        // Sistema de áudio sintetizado e contínuo (Bip repetitivo alto)
+        function dispararAlarmeSonoroEContínuo() {
+            pararAlarmeGeral(); // limpa anterior se houver
+            
+            // Tenta vibrar o telemóvel de forma contínua (padrão: vibra 1s, pausa 0.5s)
+            if (navigator.vibrate) {
+                navigator.vibrate([1000, 500, 1000, 500]);
+                vibracaoIntervalo = setInterval(() => {
+                    navigator.vibrate([1000, 500]);
+                }, 1500);
+            }
+
+            // Gera som contínuo usando Web Audio API (aplica-se a navegadores modernos)
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                audioIntervalo = setInterval(() => {
+                    if (audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'square'; // som mais audível e marcante
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // Tom alto (Lá)
+                    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.4); // toca por 400ms a cada ciclo
+                }, 800);
+            } catch (e) {
+                console.log("Áudio bloqueado por políticas do navegador até interagir:", e);
+            }
         }
 
-        // Pedir permissão para Notificações Push
-        function pedirPermissaoNotificacao() {
-            Notification.requestPermission().then((permission) => {
-                if (permission === 'granted') {
-                    alert('Notificações ativadas com sucesso! Agora receberá alertas.');
-                    document.getElementById('notif-banner').style.display = 'none';
-                    
-                    // Obter token de notificação do dispositivo
-                    messaging.getToken({ vapidKey: 'BOHz... (Opcional se usar Cloud Messaging nativo)' }).then((currentToken) => {
-                        if (currentToken) {
-                            console.log('Token do dispositivo:', currentToken);
-                        }
-                    }).catch((err) => {
-                        console.log('Erro ao obter token de permissão.', err);
-                    });
-                } else {
-                    alert('Permissão de notificação negada nas configurações do navegador.');
-                }
-            });
+        function pararAlarmeGeral() {
+            if (audioIntervalo) {
+                clearInterval(audioIntervalo);
+                audioIntervalo = null;
+            }
+            if (vibracaoIntervalo) {
+                clearInterval(vibracaoIntervalo);
+                vibracaoIntervalo = null;
+            }
+            if (navigator.vibrate) {
+                navigator.vibrate(0); // para vibração
+            }
+            document.getElementById('alerta-urgente-overlay').style.display = 'none';
         }
 
         // Relógio e Data
@@ -402,10 +465,20 @@
             return d.toISOString().split('T')[0];
         }
 
+        function pedirPermissaoNotificacao() {
+            Notification.requestPermission().then((permission) => {
+                if (permission === 'granted') {
+                    alert('Notificações ativadas com sucesso!');
+                    document.getElementById('notif-banner').style.display = 'none';
+                } else {
+                    alert('Permissão de notificação negada.');
+                }
+            });
+        }
+
         function alternarDiasTratamento() {
             const tipo = document.getElementById('tipo-tratamento').value;
-            const grupoDias = document.getElementById('grupo-dias');
-            grupoDias.style.display = (tipo === 'dias') ? 'block' : 'none';
+            document.getElementById('grupo-dias').style.display = (tipo === 'dias') ? 'block' : 'none';
         }
 
         function mostrarPreview(input) {
@@ -454,6 +527,7 @@
                 dataTermino: dataTermino,
                 foto: fotoFinal,
                 status: "Pendente",
+                alertaUrgente: false, // flag para acionar o alarme do idoso
                 horaTomado: "",
                 dataAtualizacao: hojeStr
             }).then(() => {
@@ -466,8 +540,6 @@
                 document.getElementById('preview-img').style.display = 'none';
                 document.getElementById('preview-text').style.display = 'none';
                 alert("Remédio cadastrado com sucesso!");
-            }).catch((error) => {
-                console.error("Erro ao adicionar: ", error);
             });
         }
 
@@ -477,30 +549,35 @@
             }
         }
 
-        // Função executada quando o idoso clica em tomar o remédio
-        function tomarRemedio(id, nomeRemedio) {
+        // Cuidador clica no botão "ALERTAR IDOSO"
+        function alertarIdoso(id, nomeRemedio) {
+            db.collection("medicamentos").doc(id).update({
+                alertaUrgente: true
+            }).then(() => {
+                alert(`Alerta urgente enviado para o remédio: ${nomeRemedio}!`);
+            });
+        }
+
+        // Idoso clica em tomar o remédio (Limpa o alarme e o status urgente)
+        function tomarRemedio(id) {
+            pararAlarmeGeral();
             const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             
             db.collection("medicamentos").doc(id).update({
                 status: "Tomado",
+                alertaUrgente: false,
                 horaTomado: horarioAtual,
                 dataAtualizacao: obterDataAtual()
-            }).then(() => {
-                // Dispara notificação local imediata para o cuidador/aparelho atual
-                if (Notification.permission === 'granted') {
-                    new Notification("✅ Medicamento Tomado!", {
-                        body: `A sua mãe confirmou a toma de: ${nomeRemedio} às ${horarioAtual}`,
-                        icon: "https://cdn-icons-png.flaticon.com/512/883/883397.png"
-                    });
-                }
             });
         }
 
-        // Sincronização em Tempo Real e Reset Diário
+        // Sincronização em Tempo Real (Firestore)
         db.collection("medicamentos").onSnapshot((querySnapshot) => {
             let idosoHtml = "";
             let cuidadorHtml = "";
             const hoje = obterDataAtual();
+            let dispararAlarmeNoCliente = false;
+            let nomeRemedioUrgente = "";
 
             if (querySnapshot.empty) {
                 idosoHtml = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado no momento.</p>";
@@ -518,6 +595,7 @@
                     if (med.continuo && med.status === "Tomado" && med.dataAtualizacao !== hoje) {
                         db.collection("medicamentos").doc(id).update({
                             status: "Pendente",
+                            alertaUrgente: false,
                             horaTomado: "",
                             dataAtualizacao: hoje
                         });
@@ -525,6 +603,13 @@
                     }
 
                     const isTomado = med.status === "Tomado";
+
+                    // Se o cuidador ativou o alerta urgente para este remédio pendente
+                    if (med.alertaUrgente && !isTomado) {
+                        dispararAlarmeNoCliente = true;
+                        nomeRemedioUrgente = med.nome;
+                    }
+
                     let infoTratamento = med.continuo ? '• <i>(Uso Contínuo)</i>' : `• <i>(Até ${med.dataTermino.split('-').reverse().join('/')})</i>`;
 
                     idosoHtml += `
@@ -533,7 +618,7 @@
                             <h3>${med.nome}</h3>
                             <p>Horário: ${med.horario} <br>${infoTratamento}</p>
                             <button id="btn-${id}" class="big-btn ${isTomado ? 'taken' : ''}" 
-                                    onclick="tomarRemedio('${id}', '${med.nome}')" 
+                                    onclick="tomarRemedio('${id}')" 
                                     ${isTomado ? 'disabled' : ''}>
                                 ${isTomado ? 'JÁ TOMEI ESTE REMÉDIO ✔️ (Tudo Certo!)' : 'HORA DE TOMAR O REMÉDIO!'}
                             </button>
@@ -542,17 +627,19 @@
 
                     cuidadorHtml += `
                         <div class="caregiver-item">
-                            <div>
+                            <div style="flex: 1; min-width: 200px;">
                                 <img src="${med.foto}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 8px;">
                                 <strong>${med.nome}</strong> (${med.horario})<br>
-                                <span style="margin-left: 48px; font-size: 0.9rem; color: #475569;">
-                                    ${med.continuo ? '🔄 [Uso Contínuo]' : '⏳ [Até ' + med.dataTermino.split('-').reverse().join('/') + ']'} | 
+                                <span style="margin-left: 48px; font-size: 0.85rem; color: #475569;">
                                     Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
                                         ${isTomado ? 'Tomado às ' + med.horaTomado + ' ✅' : 'Pendente'}
                                     </span>
                                 </span>
                             </div>
-                            <button class="btn-delete" onclick="deletarRemedio('${id}')">Excluir</button>
+                            <div style="display: flex; gap: 5px;">
+                                ${!isTomado ? `<button class="btn-alertar" onclick="alertarIdoso('${id}', '${med.nome}')">🚨 ALERTAR IDOSO</button>` : ''}
+                                <button class="btn-delete" onclick="deletarRemedio('${id}')">Excluir</button>
+                            </div>
                         </div>
                     `;
                 });
@@ -560,6 +647,13 @@
 
             document.getElementById('idoso-meds-container').innerHTML = idosoHtml;
             document.getElementById('cuidador-list-container').innerHTML = cuidadorHtml;
+
+            // Se houver sinal de alerta urgente ativo na nuvem, dispara o alarme/vibração no ecrã do idoso
+            if (dispararAlarmeNoCliente) {
+                document.getElementById('texto-aviso-urgente').innerText = `O cuidador enviou um alerta urgente para tomar: ${nomeRemedioUrgente}!`;
+                document.getElementById('alerta-urgente-overlay').style.display = 'flex';
+                dispararAlarmeSonoroEContínuo();
+            }
         });
     </script>
 </body>
