@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Free Talk - Controle de Medicamentos</title>
+    <!-- Importando o Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -58,7 +61,6 @@
         .section.active {
             display: block;
         }
-        /* Estilos da Área do Idoso */
         .med-card-idoso {
             background: #f1f5f9;
             border-radius: 12px;
@@ -92,7 +94,6 @@
         .big-btn.taken {
             background-color: var(--success);
         }
-        /* Estilos do Cuidador */
         .caregiver-log {
             background: #f8fafc;
             padding: 15px;
@@ -122,7 +123,7 @@
             <div class="med-card-idoso">
                 <h3>Synthroid 88mcg</h3>
                 <p>Horário: 08:00 (Jejum)</p>
-                <button id="btn-med-1" class="big-btn" onclick="tomarRemedio(1, 'Synthroid 88mcg')">
+                <button id="btn-med-1" class="big-btn" onclick="tomarRemedio('med1', 'Synthroid 88mcg')">
                     HORA DE TOMAR O REMÉDIO!
                 </button>
             </div>
@@ -130,7 +131,7 @@
             <div class="med-card-idoso">
                 <h3>Bromidrato de Galantamina 24mg</h3>
                 <p>Horário: 08:00 (Após o café)</p>
-                <button id="btn-med-2" class="big-btn" onclick="tomarRemedio(2, 'Bromidrato de Galantamina 24mg')">
+                <button id="btn-med-2" class="big-btn" onclick="tomarRemedio('med2', 'Bromidrato de Galantamina 24mg')">
                     HORA DE TOMAR O REMÉDIO!
                 </button>
             </div>
@@ -139,19 +140,33 @@
         <!-- ÁREA DO CUIDADOR -->
         <div id="section-cuidador" class="section">
             <h2>Acompanhamento do Cuidador</h2>
-            <p>Status em tempo real das medicações:</p>
+            <p>Status em tempo real sincronizado via Nuvem:</p>
             <div id="log-container">
                 <div class="caregiver-log">
-                    <strong>Synthroid 88mcg (08:00):</strong> <span id="status-1" style="color: var(--warning);">⏳ Pendente</span>
+                    <strong>Synthroid 88mcg (08:00):</strong> <span id="status-med1" style="color: var(--warning);">⏳ Pendente</span>
                 </div>
                 <div class="caregiver-log" style="margin-top: 10px;">
-                    <strong>Bromidrato de Galantamina 24mg (08:00):</strong> <span id="status-2" style="color: var(--warning);">⏳ Pendente</span>
+                    <strong>Bromidrato de Galantamina 24mg (08:00):</strong> <span id="status-med2" style="color: var(--warning);">⏳ Pendente</span>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        // CONFIGURAÇÃO DO FIREBASE (SUBSTITUA PELOS DADOS DO SEU PROJETO)
+        const firebaseConfig = {
+            apiKey: "SUA_API_KEY_AQUI",
+            authDomain: "SEU_PROJETO.firebaseapp.com",
+            projectId: "SEU_PROJETO_ID",
+            storageBucket: "SEU_PROJETO.appspot.com",
+            messagingSenderId: "SEU_MESSAGING_ID",
+            appId: "SEU_APP_ID"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
         function switchTab(tab) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -165,16 +180,42 @@
             }
         }
 
-        function tomarRemedio(id, nome) {
-            const btn = document.getElementById(`btn-med-${id}`);
-            const status = document.getElementById(`status-${id}`);
+        // Função para o Idoso confirmar que tomou (salva no Firestore)
+        function tomarRemedio(medId, nome) {
             const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-
-            btn.innerText = "JÁ TOMEI ESTE REMÉDIO ✔️";
-            btn.classList.add('taken');
             
-            status.innerHTML = `<span style="color: var(--success); font-weight: bold;">Tomado às ${horarioAtual} ✅</span>`;
+            db.collection("medicamentos").doc(medId).set({
+                status: "Tomado",
+                horario: horarioAtual,
+                nome: nome,
+                atualizadoEm: new Date().toISOString()
+            }).then(() => {
+                alert("Registrado com sucesso!");
+            }).catch((error) => {
+                console.error("Erro ao salvar: ", error);
+            });
         }
+
+        // Ouvinte em tempo real (Sincroniza automaticamente o painel do cuidador e o botão do idoso)
+        db.collection("medicamentos").onSnapshot((querySnapshot) => {
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const medId = doc.id;
+                
+                const btn = document.getElementById(medId === 'med1' ? 'btn-med-1' : 'btn-med-2');
+                const statusSpan = document.getElementById(`status-${medId}`);
+
+                if (data.status === "Tomado") {
+                    if (btn) {
+                        btn.innerText = "JÁ TOMEI ESTE REMÉDIO ✔️";
+                        btn.classList.add('taken');
+                    }
+                    if (statusSpan) {
+                        statusSpan.innerHTML = `<span style="color: var(--success); font-weight: bold;">Tomado às ${data.horario} ✅</span>`;
+                    }
+                }
+            });
+        });
     </script>
 </body>
 </html>
