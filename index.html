@@ -157,38 +157,39 @@
         .btn-camera {
             background: #0284c7;
             color: white;
-            padding: 12px;
+            padding: 14px;
             border: none;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 1.05rem;
             font-weight: bold;
             cursor: pointer;
             width: 100%;
             text-align: center;
             display: block;
             box-sizing: border-box;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         .preview-container {
             text-align: center;
             margin-top: 10px;
         }
         #preview-img {
-            width: 80px;
-            height: 80px;
+            width: 90px;
+            height: 90px;
             object-fit: cover;
             border-radius: 50%;
             border: 2px solid var(--primary);
             display: none;
-            margin: 5px auto 0 auto;
+            margin: 8px auto 0 auto;
         }
 
         .btn-add {
             background: var(--success);
             color: white;
-            padding: 12px 20px;
+            padding: 14px 20px;
             border: none;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 1.1rem;
             font-weight: bold;
             cursor: pointer;
             width: 100%;
@@ -245,7 +246,7 @@
         <!-- ÁREA DO CUIDADOR -->
         <div id="section-cuidador" class="section">
             <h2>Gestão de Medicamentos</h2>
-            <p>Adicione remédios tirando foto diretamente com a câmara do telemóvel:</p>
+            <p>Adicione novos remédios com foto tirada diretamente na câmara:</p>
             
             <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <h3>Cadastrar Novo Remédio</h3>
@@ -265,16 +266,16 @@
                     </select>
                 </div>
                 
-                <!-- Botão customizado para abrir a câmara do celular -->
+                <!-- Botão dedicado para disparar a câmara do telemóvel -->
                 <div class="form-group">
-                    <label>Foto do Comprimido (Opcional):</label>
+                    <label>Registo Fotográfico:</label>
                     <input type="file" id="input-camera" accept="image/*" capture="environment" style="display: none;" onchange="mostrarPreview(this)">
                     <button type="button" class="btn-camera" onclick="document.getElementById('input-camera').click()">
-                        📸 Tirar Foto do Comprimido
+                        📸 FOTO DO COMPRIMIDO
                     </button>
                     <div class="preview-container">
-                        <img id="preview-img" alt="Pré-visualização da foto">
-                        <p id="preview-text" style="font-size: 0.85rem; color: #64748b; margin-top: 5px; display: none;">Foto capturada com sucesso! ✅</p>
+                        <img id="preview-img" alt="Foto do comprimido">
+                        <p id="preview-text" style="font-size: 0.85rem; color: var(--success); font-weight: bold; margin-top: 5px; display: none;">Foto capturada com sucesso! ✅</p>
                     </div>
                 </div>
 
@@ -305,7 +306,7 @@
 
         let fotoBase64Global = "";
 
-        // Relógio e Data
+        // Relógio e Data em Tempo Real
         function atualizarRelogio() {
             const agora = new Date();
             const horas = String(agora.getHours()).padStart(2, '0');
@@ -337,7 +338,7 @@
             return d.toISOString().split('T')[0];
         }
 
-        // Função para capturar e mostrar pré-visualização da foto da câmara
+        // Pré-visualização da foto tirada pela câmara
         function mostrarPreview(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
@@ -363,7 +364,6 @@
                 return;
             }
 
-            // Ícone padrão caso nenhuma foto tenha sido tirada
             const fotoPadrao = 'https://cdn-icons-png.flaticon.com/512/883/883397.png';
             const fotoFinal = fotoBase64Global || fotoPadrao;
 
@@ -407,7 +407,7 @@
             });
         }
 
-        // Sincronização e Reset Diário
+        // Sincronização em Tempo Real e Reset Diário
         db.collection("medicamentos").onSnapshot((querySnapshot) => {
             let idosoHtml = "";
             let cuidadorHtml = "";
