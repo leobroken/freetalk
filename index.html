@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Free Talk - Controle de Medicamentos</title>
-    <!-- Importando o Firebase SDK -->
+    <!-- Importando o Firebase SDK (App, Firestore e Messaging) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -40,7 +41,7 @@
             padding: 15px;
             border-radius: 12px;
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         #live-clock {
@@ -53,6 +54,27 @@
             color: #94a3b8;
             margin-top: 5px;
             text-transform: capitalize;
+        }
+
+        /* Botão Global de Ativar Notificações */
+        .notification-banner {
+            background: #eff6ff;
+            border: 2px dashed var(--primary);
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .btn-notif {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.95rem;
+            margin-top: 5px;
         }
 
         .tabs {
@@ -222,6 +244,12 @@
             <p>Cuidado e Memória em Tempo Real</p>
         </header>
 
+        <!-- Barra de Ativação de Notificações -->
+        <div class="notification-banner" id="notif-banner">
+            <span style="font-size: 0.95rem; color: #1e293b;">🔔 Deseja receber avisos de remédios no telemóvel?</span><br>
+            <button class="btn-notif" onclick="pedirPermissaoNotificacao()">Ativar Notificações Push</button>
+        </div>
+
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('idoso')">👵 Área do Idoso</button>
             <button class="tab-btn" onclick="switchTab('cuidador')">📋 Painel do Cuidador</button>
@@ -265,13 +293,11 @@
                     </select>
                 </div>
                 
-                <!-- Campo de quantidade de dias (inicialmente oculto) -->
                 <div class="form-group" id="grupo-dias" style="display: none;">
                     <label>Quantos dias vai tomar?</label>
                     <input type="number" id="novo-dias" min="1" max="365" value="5" placeholder="Ex: 7">
                 </div>
 
-                <!-- Botão da Câmara -->
                 <div class="form-group">
                     <label>Registo Fotográfico:</label>
                     <input type="file" id="input-camera" accept="image/*" capture="environment" style="display: none;" onchange="mostrarPreview(this)">
@@ -308,8 +334,41 @@
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const messaging = firebase.messaging();
 
         let fotoBase64Global = "";
+
+        // Registo do Service Worker para Notificações em Segundo Plano
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/firebase-messaging-sw.js')
+                .then((registration) => {
+                    console.log('Service Worker registado com sucesso:', registration);
+                    messaging.useServiceWorker(registration);
+                }).catch((err) => {
+                    console.log('Falha ao registar o Service Worker:', err);
+                });
+        }
+
+        // Pedir permissão para Notificações Push
+        function pedirPermissaoNotificacao() {
+            Notification.requestPermission().then((permission) => {
+                if (permission === 'granted') {
+                    alert('Notificações ativadas com sucesso! Agora receberá alertas.');
+                    document.getElementById('notif-banner').style.display = 'none';
+                    
+                    // Obter token de notificação do dispositivo
+                    messaging.getToken({ vapidKey: 'BOHz... (Opcional se usar Cloud Messaging nativo)' }).then((currentToken) => {
+                        if (currentToken) {
+                            console.log('Token do dispositivo:', currentToken);
+                        }
+                    }).catch((err) => {
+                        console.log('Erro ao obter token de permissão.', err);
+                    });
+                } else {
+                    alert('Permissão de notificação negada nas configurações do navegador.');
+                }
+            });
+        }
 
         // Relógio e Data
         function atualizarRelogio() {
@@ -340,18 +399,13 @@
 
         function obterDataAtual() {
             const d = new Date();
-            return d.toISOString().split('T')[0]; // "YYYY-MM-DD"
+            return d.toISOString().split('T')[0];
         }
 
-        // Mostrar ou ocultar campo de dias com base na seleção
         function alternarDiasTratamento() {
             const tipo = document.getElementById('tipo-tratamento').value;
             const grupoDias = document.getElementById('grupo-dias');
-            if (tipo === 'dias') {
-                grupoDias.style.display = 'block';
-            } else {
-                grupoDias.style.display = 'none';
-            }
+            grupoDias.style.display = (tipo === 'dias') ? 'block' : 'none';
         }
 
         function mostrarPreview(input) {
@@ -368,7 +422,6 @@
             }
         }
 
-        // Adicionar Remédio com Cálculo de Data de Término
         function adicionarRemedio() {
             const nome = document.getElementById('novo-nome').value.trim();
             const horario = document.getElementById('novo-horario').value.trim();
@@ -386,8 +439,6 @@
             if (tipoTratamento === 'dias') {
                 continuo = false;
                 const qtdDias = parseInt(document.getElementById('novo-dias').value) || 1;
-                
-                // Calcula a data final somando os dias a partir de hoje
                 let dataFimObj = new Date();
                 dataFimObj.setDate(dataFimObj.getDate() + qtdDias);
                 dataTermino = dataFimObj.toISOString().split('T')[0];
@@ -406,7 +457,6 @@
                 horaTomado: "",
                 dataAtualizacao: hojeStr
             }).then(() => {
-                // Limpar formulário
                 document.getElementById('novo-nome').value = '';
                 document.getElementById('novo-horario').value = '';
                 document.getElementById('tipo-tratamento').value = 'continuo';
@@ -423,23 +473,30 @@
 
         function deletarRemedio(id) {
             if (confirm("Tem certeza que deseja remover este remédio?")) {
-                db.collection("medicamentos").doc(id).delete().catch((error) => {
-                    console.error("Erro ao deletar: ", error);
-                });
+                db.collection("medicamentos").doc(id).delete();
             }
         }
 
-        function tomarRemedio(id) {
+        // Função executada quando o idoso clica em tomar o remédio
+        function tomarRemedio(id, nomeRemedio) {
             const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             
             db.collection("medicamentos").doc(id).update({
                 status: "Tomado",
                 horaTomado: horarioAtual,
                 dataAtualizacao: obterDataAtual()
+            }).then(() => {
+                // Dispara notificação local imediata para o cuidador/aparelho atual
+                if (Notification.permission === 'granted') {
+                    new Notification("✅ Medicamento Tomado!", {
+                        body: `A sua mãe confirmou a toma de: ${nomeRemedio} às ${horarioAtual}`,
+                        icon: "https://cdn-icons-png.flaticon.com/512/883/883397.png"
+                    });
+                }
             });
         }
 
-        // Sincronização, Reset Diário e Validação de Término de Tratamento por Dias
+        // Sincronização em Tempo Real e Reset Diário
         db.collection("medicamentos").onSnapshot((querySnapshot) => {
             let idosoHtml = "";
             let cuidadorHtml = "";
@@ -453,14 +510,11 @@
                     const med = doc.data();
                     const id = doc.id;
 
-                    // 1. Verificar se o tratamento com dias específicos já expirou
                     if (!med.continuo && med.dataTermino && hoje > med.dataTermino) {
-                        // O prazo terminou, apaga automaticamente do banco de dados
                         db.collection("medicamentos").doc(id).delete();
                         return;
                     }
 
-                    // 2. Reset diário para remédios contínuos
                     if (med.continuo && med.status === "Tomado" && med.dataAtualizacao !== hoje) {
                         db.collection("medicamentos").doc(id).update({
                             status: "Pendente",
@@ -471,7 +525,6 @@
                     }
 
                     const isTomado = med.status === "Tomado";
-                    
                     let infoTratamento = med.continuo ? '• <i>(Uso Contínuo)</i>' : `• <i>(Até ${med.dataTermino.split('-').reverse().join('/')})</i>`;
 
                     idosoHtml += `
@@ -480,7 +533,7 @@
                             <h3>${med.nome}</h3>
                             <p>Horário: ${med.horario} <br>${infoTratamento}</p>
                             <button id="btn-${id}" class="big-btn ${isTomado ? 'taken' : ''}" 
-                                    onclick="tomarRemedio('${id}')" 
+                                    onclick="tomarRemedio('${id}', '${med.nome}')" 
                                     ${isTomado ? 'disabled' : ''}>
                                 ${isTomado ? 'JÁ TOMEI ESTE REMÉDIO ✔️ (Tudo Certo!)' : 'HORA DE TOMAR O REMÉDIO!'}
                             </button>
