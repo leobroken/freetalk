@@ -99,8 +99,8 @@
             align-items: center;
         }
         .med-img {
-            width: 110px;
-            height: 110px;
+            width: 120px;
+            height: 120px;
             object-fit: cover;
             border-radius: 50%;
             border: 3px solid var(--primary);
@@ -152,6 +152,36 @@
             box-sizing: border-box;
             background: white;
         }
+        
+        /* Botão estilizado para abrir a câmara */
+        .btn-camera {
+            background: #0284c7;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+            display: block;
+            box-sizing: border-box;
+        }
+        .preview-container {
+            text-align: center;
+            margin-top: 10px;
+        }
+        #preview-img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            display: none;
+            margin: 5px auto 0 auto;
+        }
+
         .btn-add {
             background: var(--success);
             color: white;
@@ -162,6 +192,7 @@
             font-weight: bold;
             cursor: pointer;
             width: 100%;
+            margin-top: 10px;
         }
         .caregiver-item {
             background: #f8fafc;
@@ -214,7 +245,7 @@
         <!-- ÁREA DO CUIDADOR -->
         <div id="section-cuidador" class="section">
             <h2>Gestão de Medicamentos</h2>
-            <p>Adicione remédios (com opção de uso contínuo e foto pela câmara):</p>
+            <p>Adicione remédios tirando foto diretamente com a câmara do telemóvel:</p>
             
             <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
                 <h3>Cadastrar Novo Remédio</h3>
@@ -233,10 +264,20 @@
                         <option value="nao">Uso Único / Apenas Hoje</option>
                     </select>
                 </div>
+                
+                <!-- Botão customizado para abrir a câmara do celular -->
                 <div class="form-group">
-                    <label>Foto do Remédio (Opcional - Câmara ou Galeria):</label>
-                    <input type="file" id="novo-foto" accept="image/*" capture="environment" style="padding: 8px;">
+                    <label>Foto do Comprimido (Opcional):</label>
+                    <input type="file" id="input-camera" accept="image/*" capture="environment" style="display: none;" onchange="mostrarPreview(this)">
+                    <button type="button" class="btn-camera" onclick="document.getElementById('input-camera').click()">
+                        📸 Tirar Foto do Comprimido
+                    </button>
+                    <div class="preview-container">
+                        <img id="preview-img" alt="Pré-visualização da foto">
+                        <p id="preview-text" style="font-size: 0.85rem; color: #64748b; margin-top: 5px; display: none;">Foto capturada com sucesso! ✅</p>
+                    </div>
                 </div>
+
                 <button class="btn-add" onclick="adicionarRemedio()">Adicionar Remédio</button>
             </div>
 
@@ -261,6 +302,8 @@
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+
+        let fotoBase64Global = "";
 
         // Relógio e Data
         function atualizarRelogio() {
@@ -291,47 +334,55 @@
 
         function obterDataAtual() {
             const d = new Date();
-            return d.toISOString().split('T')[0]; // Retorna formato "YYYY-MM-DD"
+            return d.toISOString().split('T')[0];
         }
 
-        // Adicionar Remédio com Suporte a Contínuo e Foto
+        // Função para capturar e mostrar pré-visualização da foto da câmara
+        function mostrarPreview(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    fotoBase64Global = e.target.result;
+                    const imgPreview = document.getElementById('preview-img');
+                    imgPreview.src = fotoBase64Global;
+                    imgPreview.style.display = 'block';
+                    document.getElementById('preview-text').style.display = 'block';
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // Adicionar Remédio
         function adicionarRemedio() {
             const nome = document.getElementById('novo-nome').value.trim();
             const horario = document.getElementById('novo-horario').value.trim();
             const continuo = document.getElementById('novo-continuo').value === 'sim';
-            const inputFoto = document.getElementById('novo-foto');
 
             if (!nome || !horario) {
                 alert("Por favor, preencha o nome e o horário do remédio.");
                 return;
             }
 
+            // Ícone padrão caso nenhuma foto tenha sido tirada
             const fotoPadrao = 'https://cdn-icons-png.flaticon.com/512/883/883397.png';
+            const fotoFinal = fotoBase64Global || fotoPadrao;
 
-            if (inputFoto.files && inputFoto.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    salvarNoFirebase(nome, horario, continuo, e.target.result);
-                };
-                reader.readAsDataURL(inputFoto.files[0]);
-            } else {
-                salvarNoFirebase(nome, horario, continuo, fotoPadrao);
-            }
-        }
-
-        function salvarNoFirebase(nome, horario, continuo, fotoUrl) {
             db.collection("medicamentos").add({
                 nome: nome,
                 horario: horario,
                 continuo: continuo,
-                foto: fotoUrl,
+                foto: fotoFinal,
                 status: "Pendente",
                 horaTomado: "",
                 dataAtualizacao: obterDataAtual()
             }).then(() => {
+                // Limpar campos
                 document.getElementById('novo-nome').value = '';
                 document.getElementById('novo-horario').value = '';
-                document.getElementById('novo-foto').value = '';
+                document.getElementById('input-camera').value = '';
+                fotoBase64Global = "";
+                document.getElementById('preview-img').style.display = 'none';
+                document.getElementById('preview-text').style.display = 'none';
                 alert("Remédio cadastrado com sucesso!");
             }).catch((error) => {
                 console.error("Erro ao adicionar: ", error);
@@ -356,7 +407,7 @@
             });
         }
 
-        // Sincronização e Verificação de Reset Diário Automático
+        // Sincronização e Reset Diário
         db.collection("medicamentos").onSnapshot((querySnapshot) => {
             let idosoHtml = "";
             let cuidadorHtml = "";
@@ -370,15 +421,13 @@
                     const med = doc.data();
                     const id = doc.id;
 
-                    // VERIFICAÇÃO DE RESET DIÁRIO PARA REMÉDIOS CONTÍNUOS
                     if (med.continuo && med.status === "Tomado" && med.dataAtualizacao !== hoje) {
-                        // O dia mudou e o remédio é contínuo! Reseta automaticamente na nuvem:
                         db.collection("medicamentos").doc(id).update({
                             status: "Pendente",
                             horaTomado: "",
                             dataAtualizacao: hoje
                         });
-                        return; // Pula esta execução para atualizar na próxima recarga
+                        return;
                     }
 
                     const isTomado = med.status === "Tomado";
@@ -399,10 +448,11 @@
                     cuidadorHtml += `
                         <div class="caregiver-item">
                             <div>
+                                <img src="${med.foto}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 8px;">
                                 <strong>${med.nome}</strong> (${med.horario}) ${med.continuo ? '🔄 [Contínuo]' : ''}<br>
-                                Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
+                                <span style="margin-left: 48px;">Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
                                     ${isTomado ? 'Tomado às ' + med.horaTomado + ' ✅' : '⏳ Pendente'}
-                                </span>
+                                </span></span>
                             </div>
                             <button class="btn-delete" onclick="deletarRemedio('${id}')">Excluir</button>
                         </div>
