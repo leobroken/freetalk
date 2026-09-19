@@ -161,7 +161,7 @@
             border: 3px solid var(--primary); margin-bottom: 12px; background: #e2e8f0;
         }
         .big-btn {
-            width: 100%; padding: 25px; font-size: 1.3rem; font-weight: bold; color: white;
+            width: 100%; padding: 25px; font-size: 1.2rem; font-weight: bold; color: white;
             background-color: var(--warning); border: none; border-radius: 12px; cursor: pointer;
         }
         .big-btn.taken { background-color: var(--success); cursor: not-allowed; }
@@ -175,6 +175,7 @@
             border-left: 5px solid var(--primary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
         }
         .btn-alertar { background: var(--danger); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
+        .btn-alertar.avisado { background: #64748b; }
         .btn-delete { background: #64748b; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
 
         .codigo-box {
@@ -398,8 +399,9 @@
         let tipoVinculoAtual = '';
         let visaoAtualCuidador = 'gestao';
         let codigoVinculoAtivoGlobal = '';
+        let timeoutAlarmeIdoso = null;
 
-        // Relógio Dinâmico Global (atualiza a cada segundo para Idoso e Cuidador)
+        // Relógio Dinâmico Global
         setInterval(() => {
             const agora = new Date();
             const horas = agora.toLocaleTimeString('pt-BR');
@@ -651,7 +653,7 @@
                     let idosoHtml = "";
                     let cuidadorHtml = "";
                     const hoje = new Date().toISOString().split('T')[0];
-                    let dispararAlarme = false;
+                    let dispararAlarmeIdoso = false;
                     let nomeUrgente = "";
 
                     if (snapshot.empty) {
@@ -671,6 +673,7 @@
                                 db.collection('medicamentos').doc(id).update({
                                     status: "Pendente",
                                     alertaUrgente: false,
+                                    avisoEnviadoAoCuidador: false,
                                     horaTomado: "",
                                     dataAtualizacao: hoje
                                 });
@@ -678,9 +681,22 @@
                             }
 
                             const isTomado = med.status === "Tomado";
-                            if (med.alertaUrgente && !isTomado) {
-                                dispararAlarme = true;
+                            
+                            // Verificar horário exato para o alarme do idoso (ex: "08:00")
+                            const horaAtualStr = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+                            if (med.horario === horaAtualStr && !isTomado) {
+                                dispararAlarmeIdoso = true;
                                 nomeUrgente = med.nome;
+                                
+                                // Se o idoso não apertar em 1 minuto, ativa alerta urgente para o cuidador
+                                if (!timeoutAlarmeIdoso) {
+                                    timeoutAlarmeIdoso = setTimeout(() => {
+                                        db.collection('medicamentos').doc(id).update({
+                                            alertaUrgente: true,
+                                            avisoEnviadoAoCuidador: true
+                                        });
+                                    }, 60000); // 60 segundos = 1 minuto
+                                }
                             }
 
                             let infoTratamento = med.continuo ? '• <i>(Uso Contínuo)</i>' : `• <i>(Até ${med.dataTermino.split('-').reverse().join('/')})</i>`;
@@ -691,10 +707,13 @@
                                     <h3>${med.nome}</h3>
                                     <p>Horário: ${med.horario} <br>${infoTratamento}</p>
                                     <button class="big-btn ${isTomado ? 'taken' : ''}" onclick="tomarRemedio('${id}')" ${isTomado ? 'disabled' : ''}>
-                                        ${isTomado ? 'JÁ TOMEI ESTE REMÉDIO ✔️' : 'HORA DE TOMAR O REMÉDIO!'}
+                                        ${isTomado ? 'REMÉDIO JÁ TOMADO HOJE ✔️' : 'JÁ TOMEI O REMÉDIO'}
                                     </button>
                                 </div>
                             `;
+
+                            const btnAvisarTexto = med.avisoEnviadoAoCuidador ? 'IDOSO AVISADO ✔️' : '🚨 AVISAR IDOSO';
+                            const btnAvisarClasse = med.avisoEnviadoAoCuidador ? 'btn-alertar avisado' : 'btn-alertar';
 
                             cuidadorHtml += `
                                 <div class="caregiver-item">
@@ -708,11 +727,17 @@
                                         </span>
                                     </div>
                                     <div style="display: flex; gap: 5px;">
-                                        ${!isTomado ? `<button class="btn-alertar" onclick="alertarIdoso('${id}', '${med.nome}')">🚨 ALERTAR IDOSO</button>` : ''}
+                                        ${!isTomado ? `<button class="${btnAvisarClasse}" onclick="avisarIdosoManual('${id}', '${med.nome}')">${btnAvisarTexto}</button>` : ''}
                                         <button class="btn-delete" onclick="deletarRemedio('${id}')">Excluir</button>
                                     </div>
                                 </div>
                             `;
+
+                            // Se o idoso não tomar em 5 minutos após o alerta do cuidador, reativa o botão
+                            if (med.alertaUrgente && !isTomado) {
+                                dispararAlarmeIdoso = true;
+                                nomeUrgente = med.nome;
+                            }
                         });
                     }
 
@@ -720,8 +745,8 @@
                     document.getElementById('cuidador-list-container').innerHTML = cuidadorHtml;
 
                     const perfilLogado = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
-                    if (dispararAlarme && (perfilLogado === 'idoso' || (perfilLogado !== 'idoso' && visaoAtualCuidador === 'idoso'))) {
-                        document.getElementById('texto-aviso-urgente').innerText = `O cuidador enviou um alerta urgente para tomar: ${nomeUrgente}!`;
+                    if (dispararAlarmeIdoso && (perfilLogado === 'idoso' || (perfilLogado !== 'idoso' && visaoAtualCuidador === 'idoso'))) {
+                        document.getElementById('texto-aviso-urgente').innerText = `Hora do remédio: ${nomeUrgente}!`;
                         document.getElementById('alerta-urgente-overlay').style.display = 'flex';
                         dispararAlarmeSonoroEContínuo();
                     }
@@ -781,6 +806,7 @@
                 foto: fotoBase64Global || fotoPadrao,
                 status: "Pendente",
                 alertaUrgente: false,
+                avisoEnviadoAoCuidador: false,
                 horaTomado: "",
                 dataAtualizacao: hojeStr
             }).then(() => {
@@ -800,18 +826,32 @@
             }
         }
 
-        function alertarIdoso(id, nome) {
-            db.collection('medicamentos').doc(id).update({ alertaUrgente: true }).then(() => {
-                alert(`Alerta urgente enviado para o remédio: ${nome}!`);
+        function avisarIdosoManual(id, nome) {
+            db.collection('medicamentos').doc(id).update({
+                alertaUrgente: true,
+                avisoEnviadoAoCuidador: true
+            }).then(() => {
+                alert(`Alerta enviado ao idoso para o remédio: ${nome}! O botão alterou para IDOSO AVISADO.`);
+                
+                // Se o idoso não tomar em 5 minutos, reativa o botão do cuidador
+                setTimeout(() => {
+                    db.collection('medicamentos').doc(id).get().then((doc) => {
+                        if (doc.exists && doc.data().status !== "Tomado") {
+                            db.collection('medicamentos').doc(id).update({ avisoEnviadoAoCuidador: false });
+                        }
+                    });
+                }, 300000); // 5 minutos = 300.000 ms
             });
         }
 
         function tomarRemedio(id) {
             pararAlarmeGeral();
+            if (timeoutAlarmeIdoso) { clearTimeout(timeoutAlarmeIdoso); timeoutAlarmeIdoso = null; }
             const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             db.collection('medicamentos').doc(id).update({
                 status: "Tomado",
                 alertaUrgente: false,
+                avisoEnviadoAoCuidador: false,
                 horaTomado: horarioAtual,
                 dataAtualizacao: new Date().toISOString().split('T')[0]
             });
