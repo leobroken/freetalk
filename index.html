@@ -408,7 +408,7 @@
         const messaging = firebase.messaging();
         auth.useDeviceLanguage();
 
-        // Ativa o Wake Lock para manter o app acordado e envia batimento contínuo ao Service Worker
+        // Ativa o Wake Lock para manter o app acordado
         async function ativarPersistenciaEAtividade() {
             if ('wakeLock' in navigator) {
                 try {
@@ -434,10 +434,7 @@
 
                     const permissao = await Notification.requestPermission();
                     if (permissao === 'granted') {
-                        const token = await messaging.getToken({
-                            serviceWorkerRegistration: reg,
-                            vapidKey: 'BOHsEw5V4vK35p0S53lY8G0_v1xZ3v5n6m7q8w9e0r1t2y3u4i5o6p7a8s9d0f1g2h3j4k5l6z7x8c9v0b'
-                        }).catch(e => console.log('Token FCM não gerado:', e));
+                        console.log('Permissão de notificação concedida.');
                     }
 
                     ativarPersistenciaEAtividade();
@@ -707,6 +704,21 @@
             return h * 60 + m;
         }
 
+        function dispararNotificacaoNativa(nomeRemedio) {
+            if (Notification.permission === 'granted') {
+                navigator.serviceWorker.ready.then((registration) => {
+                    registration.showNotification("🚨 HORA DO REMÉDIO!", {
+                        body: `Está na hora de tomar: ${nomeRemedio}. Toque para abrir o aplicativo!`,
+                        icon: "https://cdn-icons-png.flaticon.com/512/883/883397.png",
+                        vibrate: [1000, 500, 1000, 500],
+                        tag: "alerta-remedio",
+                        renotify: true,
+                        requireInteraction: true
+                    });
+                });
+            }
+        }
+
         function escutarMedicamentos(codigoVinculo, modoVisualizacaoCuidador = false) {
             if (unsubscribeMedicamentos) unsubscribeMedicamentos();
 
@@ -833,6 +845,7 @@
                         document.getElementById('texto-aviso-urgente').innerText = `Está na hora de tomar: ${nomeUrgente}!`;
                         document.getElementById('alerta-urgente-overlay').style.display = 'flex';
                         iniciarEsquemaAlarme1MinutoCom10s();
+                        dispararNotificacaoNativa(nomeUrgente);
                     }
                 });
         }
