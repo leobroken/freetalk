@@ -1,44 +1,43 @@
-self.addEventListener('install', (event) => {
-    self.skipWaiting();
+importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
+
+firebase.initializeApp({
+    apiKey: "AIzaSyBQv3TDnOAZq783UPVKwmsjyGOBE678IrE",
+    authDomain: "free-talk-a4f07.firebaseapp.com",
+    projectId: "free-talk-a4f07",
+    storageBucket: "free-talk-a4f07.firebasestorage.app",
+    messagingSenderId: "179521983087",
+    appId: "1:179521983087:web:aa61e03e9b8b3f09d7b39a",
 });
 
-self.addEventListener('activate', (event) => {
-    event.waitUntil(clients.claim());
-});
+const messaging = firebase.messaging();
 
-// Mantém o Service Worker ativo e reage a mensagens de segundo plano
-self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'MANTER_ATIVO') {
-        console.log('[sw.js] Sinal de app ativo recebido.');
-    }
-});
+// Captura notificações push quando o app está fechado ou em segundo plano
+messaging.onBackgroundMessage((payload) => {
+    console.log('[sw.js] Mensagem recebida em segundo plano:', payload);
+    
+    const titulo = payload.notification?.title || "🚨 HORA DO REMÉDIO!";
+    const corpo = payload.notification?.body || "Está na hora de tomar o seu medicamento.";
 
-// Ouve disparos push vindos do servidor ou alarmes agendados
-self.addEventListener('push', (event) => {
-    const titulo = "🚨 HORA DO REMÉDIO!";
     const opcoes = {
-        body: "Está na hora de tomar o seu medicamento. Toque em qualquer lugar da tela para confirmar.",
-        icon: 'https://cdn-icons-png.flaticon.com/512/883/883397.png',
-        badge: 'https://cdn-icons-png.flaticon.com/512/883/883397.png',
-        vibrate: [1000, 500, 1000, 500, 1000],
-        tag: 'alarme-remedio-urgente',
+        body: corpo,
+        icon: "https://cdn-icons-png.flaticon.com/512/883/883397.png",
+        vibrate: [1000, 500, 1000, 500],
+        tag: "alerta-remedio",
         renotify: true,
         requireInteraction: true
     };
 
-    event.waitUntil(
-        self.registration.showNotification(titulo, opcoes)
-    );
+    self.registration.showNotification(titulo, opcoes);
 });
 
-// Ação ao tocar na notificação: abre o app e dá foco imediato
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            for (let i = 0; i < clientList.length; i++) {
-                let client = clientList[i];
-                if (client.url && 'focus' in client) {
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            for (let i = 0; i < windowClients.length; i++) {
+                let client = windowClients[i];
+                if (client.url === '/' && 'focus' in client) {
                     return client.focus();
                 }
             }
