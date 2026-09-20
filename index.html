@@ -387,6 +387,17 @@
         const messaging = firebase.messaging();
         auth.useDeviceLanguage();
 
+        // Inicializa o plugin nativo do Google Auth ao carregar a página
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth) {
+                window.Capacitor.Plugins.GoogleAuth.initialize({
+                    clientId: '179521983087-web.apps.googleusercontent.com',
+                    scopes: ['profile', 'email'],
+                    grantOfflineAccess: true,
+                });
+            }
+        });
+
         const VAPID_KEY_PUBLICO = "BGmFr9jxNmUr_6e50xrzjGgiM0F4Aq_pSf6G722OqWZPWYWLoo83hHNcWqbIFUolUlrI-zFnvdJX7BMaSLKlVzU";
 
         async function registarTokenDispositivo() {
@@ -452,9 +463,20 @@
             });
         }
 
-        function loginGoogle() {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithPopup(provider).catch(err => alert("Erro ao entrar com Google: " + err.message));
+        // Função corrigida para usar o Google Auth nativo no telemóvel e fallback web no PC
+        async function loginGoogle() {
+            try {
+                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth) {
+                    const googleUser = await window.Capacitor.Plugins.GoogleAuth.signIn();
+                    const credential = firebase.auth.GoogleAuthProvider.credential(googleUser.authentication.idToken);
+                    await auth.signInWithCredential(credential);
+                } else {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    await auth.signInWithPopup(provider);
+                }
+            } catch (err) {
+                alert("Erro ao entrar com Google: " + err.message);
+            }
         }
 
         function loginEmailSenha() {
@@ -680,7 +702,6 @@
                             return;
                         }
 
-                        // Regra dos 5 minutos: se passou 5 min do horário e ainda está Pendente sem aviso enviado
                         const horarioMinutos = converterHorarioParaMinutos(med.horario);
                         const agoraMinutos = new Date().getHours() * 60 + new Date().getMinutes();
                         if (med.status === "Pendente" && !med.avisoEnviadoAoCuidador && (agoraMinutos - horarioMinutos >= 5)) {
@@ -724,7 +745,6 @@
                             </div>
                         `;
 
-                        // Botão AVISAR IDOSO no painel do cuidador (ativa se passou 5 min ou se o cuidador quiser forçar)
                         const passou5Min = (horaAtualMinutos - horarioRemedioMinutos >= 5) && !isTomado;
                         const deveDestacarBotao = med.alertaUrgente || passou5Min;
 
@@ -829,9 +849,9 @@
             }).then(() => { idMedicamentoPendenteUrgente = null; });
         }
 
-        // REGRA DOS EXATOS 10 PINS (sem repetir infinitamente)
+        // Exatamente 10 bips (pins) e pára sozinho
         function tocarExatamente10Pins() {
-            if (audioIntervaloID) return; // Evita sobreposição se já estiver a tocar
+            if (audioIntervaloID) return;
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 let contadorPins = 0;
@@ -855,7 +875,7 @@
                     osc.stop(audioCtx.currentTime + 0.3);
 
                     contadorPins++;
-                }, 700); // Intervalo entre cada pin
+                }, 700);
             } catch (e) {
                 console.log("Áudio bloqueado:", e);
             }
