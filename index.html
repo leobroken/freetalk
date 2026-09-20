@@ -210,7 +210,7 @@
     </style>
 </head>
 <body>
-    <!-- Ecrã de Alerta Urgente: Toque em qualquer lugar da tela confirma que já tomou -->
+    <!-- Ecrã de Alerta Urgente -->
     <div id="alerta-urgente-overlay" onclick="tocarTelaOuBotaoUrgente(event)">
         <h2>🚨 HORA DO REMÉDIO! 🚨</h2>
         <p id="texto-aviso-urgente" style="font-size: 1.3rem; margin-bottom: 25px;">Está na hora de tomar o seu medicamento.</p>
@@ -266,7 +266,6 @@
         <!-- ETAPA 2: CADASTRO COMPLEMENTAR -->
         <div id="tela-cadastro-dados" class="card-box" style="display: none;">
             <h2>Complete o seu Cadastro</h2>
-            <p style="color: #64748b; font-size: 0.95rem;">Precisamos do seu nome e data de nascimento para identificação.</p>
             <div class="form-group">
                 <label>Nome Completo:</label>
                 <input type="text" id="user-nome" placeholder="Ex: Maria da Silva">
@@ -281,36 +280,25 @@
         <!-- ETAPA 3: SELEÇÃO DE PERFIL -->
         <div id="tela-perfil-selector" class="card-box" style="display: none;">
             <h2>Qual é o seu papel?</h2>
-            <p style="color: #64748b; font-size: 0.95rem;">Escolha como vai utilizar a aplicação neste dispositivo:</p>
             <div class="profile-card-container">
-                <button class="btn-profile idoso" onclick="escolherPerfil('idoso')">
-                    👵 Sou Idoso(a)
-                </button>
-                <button class="btn-profile cuidador" onclick="escolherPerfil('cuidador_menu')">
-                    📋 Sou Cuidador(a)
-                </button>
+                <button class="btn-profile idoso" onclick="escolherPerfil('idoso')">👵 Sou Idoso(a)</button>
+                <button class="btn-profile cuidador" onclick="escolherPerfil('cuidador_menu')">📋 Sou Cuidador(a)</button>
             </div>
         </div>
 
         <!-- ETAPA 3.1: SUB-MENU DO CUIDADOR -->
         <div id="tela-cuidador-menu" class="card-box" style="display: none;">
             <h2>Área do Cuidador</h2>
-            <p style="color: #64748b; font-size: 0.95rem;">Como deseja configurar o seu painel de cuidador?</p>
             <div class="profile-card-container">
-                <button class="btn-profile cuidador" onclick="configurarCuidadorNovo()">
-                    ➕ Cuidador Novo (Criar Nova Rede)
-                </button>
-                <button class="btn-profile secundario" onclick="mostrarTelaPedirCodigoCuidador()">
-                    🔗 Entrar com Código (Já tenho um código)
-                </button>
+                <button class="btn-profile cuidador" onclick="configurarCuidadorNovo()">➕ Cuidador Novo (Criar Nova Rede)</button>
+                <button class="btn-profile secundario" onclick="mostrarTelaPedirCodigoCuidador()">🔗 Entrar com Código</button>
             </div>
             <p style="margin-top: 15px;"><a href="#" onclick="voltarParaSelecaoPerfil()" style="color: var(--primary); font-weight: bold;">← Voltar</a></p>
         </div>
 
         <!-- ETAPA 3.2: INSERIR CÓDIGO -->
         <div id="tela-pedir-codigo" class="card-box" style="display: none;">
-            <h2 id="titulo-codigo-modal">Emparelhar com o Cuidador</h2>
-            <p id="texto-codigo-modal" style="color: #64748b; font-size: 0.95rem;">Insira o código de vínculo fornecido:</p>
+            <h2 id="titulo-codigo-modal">Emparelhar</h2>
             <div class="form-group">
                 <label>Código de Vínculo:</label>
                 <input type="text" id="input-codigo-vinculo" placeholder="Ex: LORENA-8492" style="text-transform: uppercase; text-align: center; font-size: 1.3rem; letter-spacing: 2px;">
@@ -327,9 +315,7 @@
                     <div id="live-clock">00:00:00</div>
                     <div id="live-date">Carregando data...</div>
                 </div>
-
                 <h2>Seus Remédios de Hoje</h2>
-                <p>Toque no botão abaixo assim que chegar a hora de tomar o seu remédio:</p>
                 <div id="idoso-meds-container">
                     <p style="text-align: center; color: #64748b;">A carregar medicamentos...</p>
                 </div>
@@ -338,9 +324,8 @@
             <!-- ÁREA DO CUIDADOR -->
             <div id="section-cuidador" class="section">
                 <h2>Gestão de Medicamentos</h2>
-                
                 <div class="codigo-box">
-                    <span>Código de Vínculo (Partilhe com outros cuidadores ou com o idoso):</span>
+                    <span>Código de Vínculo:</span>
                     <div id="display-codigo-cuidador" class="codigo-destaque">A gerar...</div>
                     <button class="btn-main" style="padding: 8px; font-size: 0.9rem; margin-top: 5px;" onclick="copiarCodigoCuidador()">📋 Copiar Código</button>
                 </div>
@@ -362,28 +347,23 @@
                             <option value="dias">Quantidade Específica de Dias</option>
                         </select>
                     </div>
-                    
                     <div class="form-group" id="grupo-dias" style="display: none;">
                         <label>Quantos dias vai tomar?</label>
                         <input type="number" id="novo-dias" min="1" max="365" value="5">
                     </div>
-
                     <div class="form-group">
                         <label>Registo Fotográfico:</label>
                         <input type="file" id="input-camera" accept="image/*" capture="environment" style="display: none;" onchange="mostrarPreview(this)">
-                        <button type="button" class="btn-camera" onclick="document.getElementById('input-camera').click()">
-                            📸 FOTO DO COMPRIMIDO
-                        </button>
+                        <button type="button" class="btn-camera" onclick="document.getElementById('input-camera').click()">📸 FOTO DO COMPRIMIDO</button>
                         <div class="preview-container" style="text-align:center; margin-top:10px;">
                             <img id="preview-img" alt="Foto" style="width:90px; height:90px; object-fit:cover; border-radius:50%; border:2px solid var(--primary); display:none; margin:8px auto 0 auto;">
                             <p id="preview-text" style="font-size: 0.85rem; color: var(--success); font-weight: bold; margin-top: 5px; display: none;">Foto capturada! ✅</p>
                         </div>
                     </div>
-
                     <button class="btn-main" onclick="adicionarRemedio()">Adicionar Remédio</button>
                 </div>
 
-                <h3>Lista e Acompanhamento em Tempo Real</h3>
+                <h3>Lista e Acompanhamento</h3>
                 <div id="cuidador-list-container">
                     <p style="text-align: center; color: #64748b;">A carregar painel...</p>
                 </div>
@@ -408,10 +388,8 @@
         const messaging = firebase.messaging();
         auth.useDeviceLanguage();
 
-        // Chave VAPID configurada
         const VAPID_KEY_PUBLICO = "BGmFr9jxNmUr_6e50xrzjGgiM0F4Aq_pSf6G722OqWZPWYWLoo83hHNcWqbIFUolUlrI-zFnvdJX7BMaSLKlVzU";
 
-        // Registo do Token de Dispositivo para Push
         async function registarTokenDispositivo() {
             try {
                 const permissao = await Notification.requestPermission();
@@ -430,21 +408,19 @@
             }
         }
 
-        // Ativa o Wake Lock para manter o app acordado
-        async function ativarPersistenciaEAtividade() {
-            if ('wakeLock' in navigator) {
+        async function registarAlarmesBackgroundDoNavegador(reg) {
+            if ('periodicSync' in reg) {
                 try {
-                    await navigator.wakeLock.request('screen');
-                    console.log('Wake Lock ativado com sucesso.');
-                } catch (err) {
-                    console.log('Erro ao ativar Wake Lock:', err);
+                    const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+                    if (status.state === 'granted') {
+                        await reg.periodicSync.register('verificar-remedios-alarmes', {
+                            minInterval: 60 * 1000,
+                        });
+                        console.log("Periodic Background Sync registado!");
+                    }
+                } catch (error) {
+                    console.log("Periodic Sync não suportado ou negado:", error);
                 }
-            }
-
-            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-                setInterval(() => {
-                    navigator.serviceWorker.controller.postMessage({ type: 'MANTER_ATIVO' });
-                }, 20000);
             }
         }
 
@@ -453,7 +429,7 @@
                 try {
                     const reg = await navigator.serviceWorker.register('sw.js');
                     console.log('Service Worker registado:', reg.scope);
-                    ativarPersistenciaEAtividade();
+                    registarAlarmesBackgroundDoNavegador(reg);
                 } catch (err) {
                     console.log('Erro ao registar Service Worker:', err);
                 }
@@ -470,7 +446,6 @@
         let tipoVinculoAtual = '';
         let visaoAtualCuidador = 'gestao';
         let codigoVinculoAtivoGlobal = '';
-        let timeoutAlarmeIdoso = null;
         let idMedicamentoPendenteUrgente = null;
 
         setInterval(() => {
@@ -531,9 +506,7 @@
             document.getElementById(mostrar ? 'tela-registo' : 'tela-login').style.display = 'block';
         }
 
-        function sairDaConta() {
-            auth.signOut();
-        }
+        function sairDaConta() { auth.signOut(); }
 
         async function verificarDadosPerfil(uid) {
             const docRef = db.collection('utilizadores').doc(uid);
@@ -553,7 +526,7 @@
             const nascimento = document.getElementById('user-nascimento').value;
 
             if (!nome || !nascimento) {
-                alert("Por favor, preencha o seu nome completo e data de nascimento.");
+                alert("Preencha o nome completo e data de nascimento.");
                 return;
             }
 
@@ -573,11 +546,8 @@
                     verificarVinculoIdoso();
                 } else if (perfilSalvo === 'cuidador_secundario') {
                     const codigo = localStorage.getItem(`freetalk_vinculo_cuidador_${utilizadorAtual.uid}`);
-                    if (!codigo) {
-                        mostrarTelaPedirCodigoCuidador();
-                    } else {
-                        carregarPainelPrincipal('cuidador', codigo);
-                    }
+                    if (!codigo) { mostrarTelaPedirCodigoCuidador(); } 
+                    else { carregarPainelPrincipal('cuidador', codigo); }
                 } else {
                     carregarPainelPrincipal('cuidador');
                 }
@@ -596,7 +566,6 @@
 
         async function configurarCuidadorNovo() {
             localStorage.setItem(`freetalk_perfil_${utilizadorAtual.uid}`, 'cuidador');
-            
             let codigo = localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`);
             if (!codigo) {
                 codigo = 'FREE-' + Math.floor(1000 + Math.random() * 9000);
@@ -609,7 +578,6 @@
         function mostrarTelaPedirCodigoCuidador() {
             tipoVinculoAtual = 'cuidador_secundario';
             document.getElementById('titulo-codigo-modal').innerText = "Entrar com Código do Cuidador";
-            document.getElementById('texto-codigo-modal').innerText = "Insira o código partilhado pelo outro cuidador para gerir a mesma rede:";
             esconderTodasAsTelas();
             document.getElementById('tela-pedir-codigo').style.display = 'block';
         }
@@ -617,8 +585,6 @@
         function verificarVinculoIdoso() {
             tipoVinculoAtual = 'idoso';
             document.getElementById('titulo-codigo-modal').innerText = "Emparelhar com o Cuidador";
-            document.getElementById('texto-codigo-modal').innerText = "Insira o código de vínculo fornecido pelo seu cuidador:";
-            
             const codigoVinculado = localStorage.getItem(`freetalk_vinculo_idoso_${utilizadorAtual.uid}`);
             if (!codigoVinculado) {
                 esconderTodasAsTelas();
@@ -630,25 +596,17 @@
 
         async function vincularComCodigo() {
             const codigo = document.getElementById('input-codigo-vinculo').value.trim().toUpperCase();
-            if (!codigo) {
-                alert("Insira o código.");
-                return;
-            }
+            if (!codigo) { alert("Insira o código."); return; }
 
             const vinculoDoc = await db.collection('vinculos').doc(codigo).get();
-            if (!vinculoDoc.exists) {
-                alert("Código inválido ou não encontrado. Verifique com o cuidador responsável.");
-                return;
-            }
+            if (!vinculoDoc.exists) { alert("Código inválido."); return; }
 
             if (tipoVinculoAtual === 'cuidador_secundario') {
                 localStorage.setItem(`freetalk_perfil_${utilizadorAtual.uid}`, 'cuidador_secundario');
                 localStorage.setItem(`freetalk_vinculo_cuidador_${utilizadorAtual.uid}`, codigo);
-                alert("Acesso vinculado com sucesso à rede do cuidador!");
                 carregarPainelPrincipal('cuidador', codigo);
             } else {
                 localStorage.setItem(`freetalk_vinculo_idoso_${utilizadorAtual.uid}`, codigo);
-                alert("Vínculo estabelecido com sucesso!");
                 carregarPainelPrincipal('idoso', codigo);
             }
         }
@@ -660,9 +618,8 @@
 
         function voltarParaMenuCuidador() {
             const perfilSalvo = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
-            if (perfilSalvo === 'idoso') {
-                voltarParaSelecaoPerfil();
-            } else {
+            if (perfilSalvo === 'idoso') { voltarParaSelecaoPerfil(); } 
+            else {
                 esconderTodasAsTelas();
                 document.getElementById('tela-cuidador-menu').style.display = 'block';
             }
@@ -696,14 +653,10 @@
             if (perfil === 'idoso' || perfil === 'idoso_modo_cuidador') {
                 document.getElementById('section-idoso').classList.add('active');
                 document.getElementById('section-cuidador').classList.remove('active');
-                const sufixoModo = (perfil === 'idoso_modo_cuidador') ? ' (Modo Visualização)' : '';
-                document.getElementById('subtitulo-topo').innerText = `Área do Idoso${sufixoModo} • ${dadosUtilizador.nome}`;
                 escutarMedicamentos(codigoVinculo, perfil === 'idoso_modo_cuidador');
             } else {
                 document.getElementById('section-cuidador').classList.add('active');
                 document.getElementById('section-idoso').classList.remove('active');
-                document.getElementById('subtitulo-topo').innerText = `Painel de Gestão • ${dadosUtilizador.nome}`;
-                
                 const codigoExibicao = codigoVinculo || localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`) || 'FREE-1234';
                 document.getElementById('display-codigo-cuidador').innerText = codigoExibicao;
                 escutarMedicamentos(codigoExibicao, false);
@@ -711,9 +664,8 @@
         }
 
         function copiarCodigoCuidador() {
-            const codigo = document.getElementById('display-codigo-cuidador').innerText;
-            navigator.clipboard.writeText(codigo);
-            alert("Código copiado para a área de transferência!");
+            navigator.clipboard.writeText(document.getElementById('display-codigo-cuidador').innerText);
+            alert("Código copiado!");
         }
 
         function converterHorarioParaMinutos(horaStr) {
@@ -721,22 +673,7 @@
             return h * 60 + m;
         }
 
-        function dispararNotificacaoNativa(nomeRemedio) {
-            if (Notification.permission === 'granted') {
-                navigator.serviceWorker.ready.then((registration) => {
-                    registration.showNotification("🚨 HORA DO REMÉDIO!", {
-                        body: `Está na hora de tomar: ${nomeRemedio}. Toque para abrir o aplicativo!`,
-                        icon: "https://cdn-icons-png.flaticon.com/512/883/883397.png",
-                        vibrate: [1000, 500, 1000, 500],
-                        tag: "alerta-remedio",
-                        renotify: true,
-                        requireInteraction: true
-                    });
-                });
-            }
-        }
-
-        function escutarMedicamentos(codigoVinculo, modoVisualizacaoCuidador = false) {
+        function escutarMedicamentos(codigoVinculo) {
             if (unsubscribeMedicamentos) unsubscribeMedicamentos();
 
             unsubscribeMedicamentos = db.collection('medicamentos')
@@ -750,7 +687,7 @@
                     let idEncontradoUrgente = null;
 
                     if (snapshot.empty) {
-                        document.getElementById('idoso-meds-container').innerHTML = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado no momento.</p>";
+                        document.getElementById('idoso-meds-container').innerHTML = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado.</p>";
                         document.getElementById('cuidador-list-container').innerHTML = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado.</p>";
                         return;
                     }
@@ -774,15 +711,10 @@
                             });
                             return;
                         }
-
                         listaMedicamentos.push({ id, ...med });
                     });
 
-                    listaMedicamentos.sort((a, b) => {
-                        if (a.status === "Tomado" && b.status !== "Tomado") return 1;
-                        if (a.status !== "Tomado" && b.status === "Tomado") return -1;
-                        return a.horario.localeCompare(b.horario);
-                    });
+                    listaMedicamentos.sort((a, b) => a.horario.localeCompare(b.horario));
 
                     const agoraData = new Date();
                     const horaAtualMinutos = agoraData.getHours() * 60 + agoraData.getMinutes();
@@ -805,50 +737,21 @@
                             classeBotaoIdoso += " piscando";
                         }
 
-                        let infoTratamento = med.continuo ? '• <i>(Uso Contínuo)</i>' : `• <i>(Até ${med.dataTermino.split('-').reverse().join('/')})</i>`;
-
-                        let avisoAbaixoHtml = "";
-                        if (!isTomado && !podeTomar) {
-                            avisoAbaixoHtml = `<p style="color: var(--warning); font-weight: bold; font-size: 0.95rem; margin-top: 10px;">⏳ Aguarde o horário (${med.horario}) para tomar</p>`;
-                        }
-
                         idosoHtml += `
                             <div class="med-card-idoso" style="${isTomado ? 'opacity: 0.75; background: #e2e8f0;' : ''}">
                                 <img src="${med.foto}" alt="${med.nome}" class="med-img">
                                 <h3>${med.nome}</h3>
-                                <p>Horário: ${med.horario} <br>${infoTratamento}</p>
+                                <p>Horário: ${med.horario}</p>
                                 <button class="${classeBotaoIdoso} ${isTomado ? 'taken' : ''}" onclick="tomarRemedio('${med.id}')" ${isTomado || !podeTomar ? 'disabled' : ''}>
-                                    ${isTomado ? 'REMÉDIO JÁ TOMADO HOJE ✔️' : 'JÁ TOMEI O REMÉDIO'}
+                                    ${isTomado ? 'REMÉDIO JÁ TOMADO ✔️' : 'JÁ TOMEI O REMÉDIO'}
                                 </button>
-                                ${avisoAbaixoHtml}
                             </div>
                         `;
 
-                        const minutosPassados = horaAtualMinutos - horarioRemedioMinutos;
-                        const podeCuidadorAvisar = !isTomado && minutosPassados >= 5;
-                        
-                        let btnAvisarTexto = med.avisoEnviadoAoCuidador ? 'IDOSO AVISADO ✔️' : '🚨 AVISAR IDOSO';
-                        if (!podeCuidadorAvisar && !isTomado) {
-                            btnAvisarTexto = `DISPONÍVEL EM ${5 - minutosPassados} MIN`;
-                        }
-
-                        const btnAvisarClasse = med.avisoEnviadoAoCuidador ? 'btn-alertar avisado' : 'btn-alertar';
-
                         cuidadorHtml += `
                             <div class="caregiver-item">
-                                <div style="flex: 1; min-width: 200px;">
-                                    <img src="${med.foto}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 8px;">
-                                    <strong>${med.nome}</strong> (${med.horario})<br>
-                                    <span style="margin-left: 48px; font-size: 0.85rem; color: #475569;">
-                                        Status: <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
-                                            ${isTomado ? 'Tomado às ' + med.horaTomado + ' ✅' : 'Pendente'}
-                                        </span>
-                                    </span>
-                                </div>
-                                <div style="display: flex; gap: 5px;">
-                                    ${!isTomado ? `<button class="${btnAvisarClasse}" onclick="avisarIdosoManual('${med.id}', '${med.nome}')" ${!podeCuidadorAvisar ? 'disabled' : ''}>${btnAvisarTexto}</button>` : ''}
-                                    <button class="btn-delete" onclick="deletarRemedio('${med.id}')">Excluir</button>
-                                </div>
+                                <div><strong>${med.nome}</strong> (${med.horario}) - <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'};">${isTomado ? 'Tomado' : 'Pendente'}</span></div>
+                                <button class="btn-delete" onclick="deletarRemedio('${med.id}')">Excluir</button>
                             </div>
                         `;
                     });
@@ -857,12 +760,11 @@
                     document.getElementById('cuidador-list-container').innerHTML = cuidadorHtml;
 
                     const perfilLogado = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
-                    if (dispararAlarmeIdoso && (perfilLogado === 'idoso' || (perfilLogado !== 'idoso' && visaoAtualCuidador === 'idoso'))) {
+                    if (dispararAlarmeIdoso && (perfilLogado === 'idoso' || visaoAtualCuidador === 'idoso')) {
                         idMedicamentoPendenteUrgente = idEncontradoUrgente;
                         document.getElementById('texto-aviso-urgente').innerText = `Está na hora de tomar: ${nomeUrgente}!`;
                         document.getElementById('alerta-urgente-overlay').style.display = 'flex';
                         iniciarEsquemaAlarme1MinutoCom10s();
-                        dispararNotificacaoNativa(nomeUrgente);
                     }
                 });
         }
@@ -889,84 +791,32 @@
         function adicionarRemedio() {
             const nome = document.getElementById('novo-nome').value.trim();
             const horario = document.getElementById('novo-horario').value.trim();
-            const tipoTratamento = document.getElementById('tipo-tratamento').value;
-            
-            if (!nome || !horario) {
-                alert("Por favor, preencha o nome e o horário do remédio.");
-                return;
-            }
-
-            let continuo = true;
-            let dataTermino = "";
-            const hojeStr = new Date().toISOString().split('T')[0];
-
-            if (tipoTratamento === 'dias') {
-                continuo = false;
-                const qtdDias = parseInt(document.getElementById('novo-dias').value) || 1;
-                let dataFimObj = new Date();
-                dataFimObj.setDate(dataFimObj.getDate() + qtdDias);
-                dataTermino = dataFimObj.toISOString().split('T')[0];
-            }
+            if (!nome || !horario) { alert("Preencha o nome e o horário."); return; }
 
             const codigoCuidador = document.getElementById('display-codigo-cuidador').innerText;
-            const fotoPadrao = 'https://cdn-icons-png.flaticon.com/512/883/883397.png';
-
             db.collection('medicamentos').add({
                 codigoVinculo: codigoCuidador,
                 nome: nome,
                 horario: horario,
-                continuo: continuo,
-                dataTermino: dataTermino,
-                foto: fotoBase64Global || fotoPadrao,
+                continuo: true,
+                foto: fotoBase64Global || 'https://cdn-icons-png.flaticon.com/512/883/883397.png',
                 status: "Pendente",
                 alertaUrgente: false,
                 avisoEnviadoAoCuidador: false,
                 horaTomado: "",
-                dataAtualizacao: hojeStr
+                dataAtualizacao: new Date().toISOString().split('T')[0]
             }).then(() => {
                 document.getElementById('novo-nome').value = '';
                 document.getElementById('novo-horario').value = '';
-                document.getElementById('input-camera').value = '';
-                fotoBase64Global = "";
-                document.getElementById('preview-img').style.display = 'none';
-                document.getElementById('preview-text').style.display = 'none';
-                alert("Remédio adicionado com sucesso!");
+                alert("Adicionado com sucesso!");
             });
         }
 
-        function deletarRemedio(id) {
-            if (confirm("Deseja remover este remédio?")) {
-                db.collection('medicamentos').doc(id).delete();
-            }
-        }
-
-        function avisarIdosoManual(id, nome) {
-            db.collection('medicamentos').doc(id).update({
-                alertaUrgente: true,
-                avisoEnviadoAoCuidador: true
-            }).then(() => {
-                alert(`Alerta enviado ao idoso para o remédio: ${nome}! O alarme tocará por 1 minuto (10s tocando / 10s parado).`);
-                
-                setTimeout(() => {
-                    db.collection('medicamentos').doc(id).get().then((doc) => {
-                        if (doc.exists && doc.data().status !== "Tomado") {
-                            db.collection('medicamentos').doc(id).update({ 
-                                avisoEnviadoAoCuidador: false,
-                                alertaUrgente: false 
-                            });
-                        }
-                    });
-                }, 300000);
-            });
-        }
+        function deletarRemedio(id) { if (confirm("Excluir remédio?")) db.collection('medicamentos').doc(id).delete(); }
 
         function tocarTelaOuBotaoUrgente(event) {
             event.stopPropagation();
-            if (idMedicamentoPendenteUrgente) {
-                tomarRemedio(idMedicamentoPendenteUrgente);
-            } else {
-                pararAlarmeGeral();
-            }
+            if (idMedicamentoPendenteUrgente) tomarRemedio(idMedicamentoPendenteUrgente);
         }
 
         function tomarRemedio(id) {
@@ -975,86 +825,32 @@
             db.collection('medicamentos').doc(id).update({
                 status: "Tomado",
                 alertaUrgente: false,
-                avisoEnviadoAoCuidador: false,
                 horaTomado: horarioAtual,
                 dataAtualizacao: new Date().toISOString().split('T')[0]
-            }).then(() => {
-                idMedicamentoPendenteUrgente = null;
-            });
+            }).then(() => { idMedicamentoPendenteUrgente = null; });
         }
 
-        // ESQUEMA EXATO DE 1 MINUTO COM 10s TOCANDO / 10s PARADO
         function iniciarEsquemaAlarme1MinutoCom10s() {
             if (audioIntervaloID) return;
-
-            const dispararSomEVibracao = () => {
-                if (navigator.vibrate) {
-                    navigator.vibrate([1000, 500, 1000, 500]);
-                    vibracaoIntervaloID = setInterval(() => { navigator.vibrate([1000, 500]); }, 1500);
-                }
-                try {
-                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    audioIntervaloID = setInterval(() => {
-                        if (audioCtx.state === 'suspended') { audioCtx.resume(); }
-                        const osc = audioCtx.createOscillator();
-                        const gain = audioCtx.createGain();
-                        osc.type = 'square';
-                        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-                        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-                        osc.connect(gain);
-                        gain.connect(audioCtx.destination);
-                        osc.start();
-                        osc.stop(audioCtx.currentTime + 0.4);
-                    }, 800);
-                } catch (e) {
-                    console.log("Áudio bloqueado:", e);
-                }
-            };
-
-            const pararSomEVibracao = () => {
-                if (audioIntervaloID) { clearInterval(audioIntervaloID); audioIntervaloID = null; }
-                if (vibracaoIntervaloID) { clearInterval(vibracaoIntervaloID); vibracaoIntervaloID = null; }
-                if (navigator.vibrate) { navigator.vibrate(0); }
-            };
-
-            timeoutsAlarmeIds.forEach(id => clearTimeout(id));
-            timeoutsAlarmeIds = [];
-
-            // 0s a 10s: Tocando
-            dispararSomEVibracao();
-
-            // 10s a 20s: Parado
-            timeoutsAlarmeIds.push(setTimeout(() => {
-                pararSomEVibracao();
-            }, 10000));
-
-            // 20s a 30s: Tocando
-            timeoutsAlarmeIds.push(setTimeout(() => {
-                dispararSomEVibracao();
-            }, 20000));
-
-            // 30s a 40s: Parado
-            timeoutsAlarmeIds.push(setTimeout(() => {
-                pararSomEVibracao();
-            }, 30000));
-
-            // 40s a 50s: Tocando
-            timeoutsAlarmeIds.push(setTimeout(() => {
-                dispararSomEVibracao();
-            }, 40000));
-
-            // 50s a 60s: Parado (Fim do 1 minuto)
-            timeoutsAlarmeIds.push(setTimeout(() => {
-                pararSomEVibracao();
-            }, 50000));
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                audioIntervaloID = setInterval(() => {
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.4);
+                }, 800);
+            } catch (e) { console.log("Áudio bloqueado:", e); }
         }
 
         function pararAlarmeGeral() {
             if (audioIntervaloID) { clearInterval(audioIntervaloID); audioIntervaloID = null; }
-            if (vibracaoIntervaloID) { clearInterval(vibracaoIntervaloID); vibracaoIntervaloID = null; }
-            timeoutsAlarmeIds.forEach(id => clearTimeout(id));
-            timeoutsAlarmeIds = [];
-            if (navigator.vibrate) { navigator.vibrate(0); }
             document.getElementById('alerta-urgente-overlay').style.display = 'none';
         }
     </script>

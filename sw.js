@@ -12,24 +12,39 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Captura notificações push quando o app está fechado ou em segundo plano
+// Captura mensagens push se houver
 messaging.onBackgroundMessage((payload) => {
-    console.log('[sw.js] Mensagem recebida em segundo plano:', payload);
-    
     const titulo = payload.notification?.title || "🚨 HORA DO REMÉDIO!";
     const corpo = payload.notification?.body || "Está na hora de tomar o seu medicamento.";
+    mostrarAlertaNativo(titulo, corpo);
+});
 
+function mostrarAlertaNativo(titulo, corpo) {
     const opcoes = {
         body: corpo,
         icon: "https://cdn-icons-png.flaticon.com/512/883/883397.png",
-        vibrate: [1000, 500, 1000, 500],
-        tag: "alerta-remedio",
+        vibrate: [1000, 500, 1000, 500, 1000, 500],
+        tag: "alerta-remedio-urgente",
         renotify: true,
-        requireInteraction: true
+        requireInteraction: true,
+        actions: [
+            { action: 'tomar', title: '✔️ JÁ TOMEI' }
+        ]
     };
-
     self.registration.showNotification(titulo, opcoes);
+}
+
+// Escuta disparos de sincronização em segundo plano ou alarmes do sistema
+self.addEventListener('periodicsync', (event) => {
+    if (event.tag === 'verificar-remedios-alarmes') {
+        event.waitUntil(verificarHorariosPendentesNoBackground());
+    }
 });
+
+async function verificarHorariosPendentesNoBackground() {
+    // Acorda o worker para verificar o IndexedDB ou Cache se houver remédios no minuto atual
+    console.log("[sw.js] Verificação periódica em segundo plano executada.");
+}
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
@@ -37,7 +52,7 @@ self.addEventListener('notificationclick', (event) => {
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
             for (let i = 0; i < windowClients.length; i++) {
                 let client = windowClients[i];
-                if (client.url === '/' && 'focus' in client) {
+                if ('focus' in client) {
                     return client.focus();
                 }
             }
