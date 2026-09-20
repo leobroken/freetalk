@@ -4,11 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Free Talk - Gestão Compartilhada de Medicamentos</title>
-    <!-- Configuração PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
     
-    <!-- Firebase SDK (App, Auth, Firestore, Messaging) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -210,7 +208,6 @@
     </style>
 </head>
 <body>
-    <!-- Ecrã de Alerta Urgente -->
     <div id="alerta-urgente-overlay" onclick="tocarTelaOuBotaoUrgente(event)">
         <h2>🚨 HORA DO REMÉDIO! 🚨</h2>
         <p id="texto-aviso-urgente" style="font-size: 1.3rem; margin-bottom: 25px;">Está na hora de tomar o seu medicamento.</p>
@@ -227,7 +224,6 @@
             <p id="subtitulo-topo">Gestão Compartilhada de Medicamentos</p>
         </header>
 
-        <!-- ETAPA 1: LOGIN -->
         <div id="tela-login" class="card-box" style="display: none;">
             <h2>Acessar Conta</h2>
             <p style="color: #64748b; font-size: 0.95rem;">Entre com a sua conta Google ou E-mail para continuar.</p>
@@ -248,7 +244,6 @@
             <p style="margin-top: 15px; font-size: 0.9rem;">Não tem conta? <a href="#" onclick="alternarTelaRegisto(true)" style="color: var(--primary); font-weight: bold;">Criar Conta</a></p>
         </div>
 
-        <!-- ETAPA 1.1: CRIAR CONTA -->
         <div id="tela-registo" class="card-box" style="display: none;">
             <h2>Criar Nova Conta</h2>
             <div class="form-group">
@@ -263,7 +258,6 @@
             <p style="margin-top: 15px; font-size: 0.9rem;"><a href="#" onclick="alternarTelaRegisto(false)" style="color: var(--primary); font-weight: bold;">← Voltar ao Login</a></p>
         </div>
 
-        <!-- ETAPA 2: CADASTRO COMPLEMENTAR -->
         <div id="tela-cadastro-dados" class="card-box" style="display: none;">
             <h2>Complete o seu Cadastro</h2>
             <div class="form-group">
@@ -277,7 +271,6 @@
             <button class="btn-main" onclick="salvarDadosUtilizador()">Avançar</button>
         </div>
 
-        <!-- ETAPA 3: SELEÇÃO DE PERFIL -->
         <div id="tela-perfil-selector" class="card-box" style="display: none;">
             <h2>Qual é o seu papel?</h2>
             <div class="profile-card-container">
@@ -286,7 +279,6 @@
             </div>
         </div>
 
-        <!-- ETAPA 3.1: SUB-MENU DO CUIDADOR -->
         <div id="tela-cuidador-menu" class="card-box" style="display: none;">
             <h2>Área do Cuidador</h2>
             <div class="profile-card-container">
@@ -296,7 +288,6 @@
             <p style="margin-top: 15px;"><a href="#" onclick="voltarParaSelecaoPerfil()" style="color: var(--primary); font-weight: bold;">← Voltar</a></p>
         </div>
 
-        <!-- ETAPA 3.2: INSERIR CÓDIGO -->
         <div id="tela-pedir-codigo" class="card-box" style="display: none;">
             <h2 id="titulo-codigo-modal">Emparelhar</h2>
             <div class="form-group">
@@ -307,9 +298,7 @@
             <p style="margin-top: 15px;"><a href="#" onclick="voltarParaMenuCuidador()" style="color: var(--primary); font-weight: bold;">← Voltar</a></p>
         </div>
 
-        <!-- ETAPA 4: PAINEL PRINCIPAL -->
         <div id="main-app" class="container" style="display: none;">
-            <!-- ÁREA DO IDOSO -->
             <div id="section-idoso" class="section">
                 <div class="clock-container">
                     <div id="live-clock">00:00:00</div>
@@ -321,7 +310,6 @@
                 </div>
             </div>
 
-            <!-- ÁREA DO CUIDADOR -->
             <div id="section-cuidador" class="section">
                 <h2>Gestão de Medicamentos</h2>
                 <div class="codigo-box">
@@ -441,6 +429,7 @@
         let unsubscribeMedicamentos = null;
         let fotoBase64Global = "";
         let audioIntervaloID = null;
+        let alarmeTimeoutLimiteID = null;
         let vibracaoIntervaloID = null;
         let timeoutsAlarmeIds = [];
         let tipoVinculoAtual = '';
@@ -748,10 +737,14 @@
                             </div>
                         `;
 
+                        // Botão do cuidador para reativar/forçar o alarme urgente no dispositivo do idoso
                         cuidadorHtml += `
                             <div class="caregiver-item">
                                 <div><strong>${med.nome}</strong> (${med.horario}) - <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'};">${isTomado ? 'Tomado' : 'Pendente'}</span></div>
-                                <button class="btn-delete" onclick="deletarRemedio('${med.id}')">Excluir</button>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn-alertar ${med.alertaUrgente ? 'avisado' : ''}" onclick="acionarAlertaUrgenteCuidador('${med.id}', ${med.alertaUrgente})">${med.alertaUrgente ? '🚨 Alerta Ativo' : '🔔 Tocar Alarme'}</button>
+                                    <button class="btn-delete" onclick="deletarRemedio('${med.id}')">Excluir</button>
+                                </div>
                             </div>
                         `;
                     });
@@ -767,6 +760,15 @@
                         iniciarEsquemaAlarme1MinutoCom10s();
                     }
                 });
+        }
+
+        function acionarAlertaUrgenteCuidador(id, estadoAtual) {
+            const novoEstado = !estadoAtual;
+            db.collection('medicamentos').doc(id).update({
+                alertaUrgente: novoEstado
+            }).then(() => {
+                alert(novoEstado ? "Alarme disparado para o idoso!" : "Alarme desativado.");
+            });
         }
 
         function alternarDiasTratamento() {
@@ -846,12 +848,19 @@
                     osc.start();
                     osc.stop(audioCtx.currentTime + 0.4);
                 }, 800);
+
+                if (alarmeTimeoutLimiteID) clearTimeout(alarmeTimeoutLimiteID);
+                alarmeTimeoutLimiteID = setTimeout(() => {
+                    pararAlarmeGeral();
+                }, 60000);
             } catch (e) { console.log("Áudio bloqueado:", e); }
         }
 
         function pararAlarmeGeral() {
             if (audioIntervaloID) { clearInterval(audioIntervaloID); audioIntervaloID = null; }
-            document.getElementById('alerta-urgente-overlay').style.display = 'none';
+            if (alarmeTimeoutLimiteID) { clearTimeout(alarmeTimeoutLimiteID); alarmeTimeoutLimiteID = null; }
+            const overlay = document.getElementById('alerta-urgente-overlay');
+            if (overlay) overlay.style.display = 'none';
         }
     </script>
 </body>
