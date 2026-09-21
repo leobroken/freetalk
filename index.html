@@ -4,11 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Free Talk - Gestão Compartilhada de Medicamentos</title>
-    <!-- Configuração PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
     
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -207,7 +205,6 @@
             <p id="subtitulo-topo">Gestão Compartilhada de Medicamentos</p>
         </header>
 
-        <!-- ETAPA 1: LOGIN -->
         <div id="tela-login" class="card-box" style="display: none;">
             <h2>Acessar Conta</h2>
             <p style="color: #64748b; font-size: 0.95rem;">Entre com a sua conta Google ou E-mail para continuar.</p>
@@ -228,7 +225,6 @@
             <p style="margin-top: 15px; font-size: 0.9rem;">Não tem conta? <a href="#" onclick="alternarTelaRegisto(true)" style="color: var(--primary); font-weight: bold;">Criar Conta</a></p>
         </div>
 
-        <!-- ETAPA 1.1: CRIAR CONTA -->
         <div id="tela-registo" class="card-box" style="display: none;">
             <h2>Criar Nova Conta</h2>
             <div class="form-group">
@@ -243,7 +239,6 @@
             <p style="margin-top: 15px; font-size: 0.9rem;"><a href="#" onclick="alternarTelaRegisto(false)" style="color: var(--primary); font-weight: bold;">← Voltar ao Login</a></p>
         </div>
 
-        <!-- ETAPA 2: CADASTRO COMPLEMENTAR -->
         <div id="tela-cadastro-dados" class="card-box" style="display: none;">
             <h2>Complete o seu Cadastro</h2>
             <div class="form-group">
@@ -257,7 +252,6 @@
             <button class="btn-main" onclick="salvarDadosUtilizador()">Avançar</button>
         </div>
 
-        <!-- ETAPA 3: SELEÇÃO DE PERFIL -->
         <div id="tela-perfil-selector" class="card-box" style="display: none;">
             <h2>Qual é o seu papel?</h2>
             <div class="profile-card-container">
@@ -266,7 +260,6 @@
             </div>
         </div>
 
-        <!-- ETAPA 3.1: SUB-MENU DO CUIDADOR -->
         <div id="tela-cuidador-menu" class="card-box" style="display: none;">
             <h2>Área do Cuidador</h2>
             <div class="profile-card-container">
@@ -276,7 +269,6 @@
             <p style="margin-top: 15px;"><a href="#" onclick="voltarParaSelecaoPerfil()" style="color: var(--primary); font-weight: bold;">← Voltar</a></p>
         </div>
 
-        <!-- ETAPA 3.2: INSERIR CÓDIGO -->
         <div id="tela-pedir-codigo" class="card-box" style="display: none;">
             <h2 id="titulo-codigo-modal">Emparelhar</h2>
             <div class="form-group">
@@ -287,9 +279,7 @@
             <p style="margin-top: 15px;"><a href="#" onclick="voltarParaMenuCuidador()" style="color: var(--primary); font-weight: bold;">← Voltar</a></p>
         </div>
 
-        <!-- ETAPA 4: PAINEL PRINCIPAL -->
         <div id="main-app" class="container" style="display: none;">
-            <!-- ÁREA DO IDOSO -->
             <div id="section-idoso" class="section">
                 <div class="clock-container">
                     <div id="live-clock">00:00:00</div>
@@ -301,7 +291,6 @@
                 </div>
             </div>
 
-            <!-- ÁREA DO CUIDADOR -->
             <div id="section-cuidador" class="section">
                 <h2>Gestão de Medicamentos</h2>
                 <div class="codigo-box">
@@ -367,32 +356,13 @@
         const db = firebase.firestore();
         auth.useDeviceLanguage();
 
-        // Configurar Listener para Ações nas Notificações Nativas (Botão JÁ TOMEI)
         document.addEventListener('DOMContentLoaded', async () => {
             if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
                 const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
-                
-                // Pedir permissão para notificações locais
-                await LocalNotifications.requestPermissions();
-
-                // Registar canal com prioridade máxima e som de alarme
-                await LocalNotifications.createChannel({
-                    id: 'freetalk_alarme',
-                    name: 'Alarme de Medicamentos',
-                    importance: 5,
-                    visibility: 1,
-                    sound: 'default',
-                    lights: true,
-                    vibration: true
-                });
-
-                // Ação quando o utilizador clica no botão "JÁ TOMEI" direto na notificação
                 LocalNotifications.addListener('localNotificationActionPerformed', (notificationAction) => {
                     if (notificationAction.actionId === 'ja_tomei_action') {
                         const medicamentoId = notificationAction.notification.extra.medicamentoId;
-                        if (medicamentoId) {
-                            tomarRemedio(medicamentoId);
-                        }
+                        if (medicamentoId) { tomarRemedio(medicamentoId); }
                     }
                 });
             }
@@ -501,6 +471,7 @@
                 document.getElementById('tela-perfil-selector').style.display = 'block';
             } else {
                 if (perfilSalvo === 'idoso') {
+                    solicitarPermissoesNativasIdoso();
                     verificarVinculoIdoso();
                 } else if (perfilSalvo === 'cuidador_secundario') {
                     const codigo = localStorage.getItem(`freetalk_vinculo_cuidador_${utilizadorAtual.uid}`);
@@ -512,12 +483,36 @@
             }
         }
 
-        function escolherPerfil(perfil) {
+        async function solicitarPermissoesNativasIdoso() {
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+                const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
+                try {
+                    await LocalNotifications.requestPermissions();
+                    await LocalNotifications.createChannel({
+                        id: 'freetalk_alarme',
+                        name: 'Alarme de Medicamentos',
+                        importance: 5,
+                        visibility: 1,
+                        sound: 'default',
+                        lights: true,
+                        vibration: true
+                    });
+                    if (typeof LocalNotifications.requestExactAlarmsPermission === 'function') {
+                        await LocalNotifications.requestExactAlarmsPermission();
+                    }
+                } catch(e) {
+                    console.log("Erro permissões:", e);
+                }
+            }
+        }
+
+        async function escolherPerfil(perfil) {
             if (perfil === 'cuidador_menu') {
                 esconderTodasAsTelas();
                 document.getElementById('tela-cuidador-menu').style.display = 'block';
             } else {
                 localStorage.setItem(`freetalk_perfil_${utilizadorAtual.uid}`, 'idoso');
+                await solicitarPermissoesNativasIdoso();
                 verificarVinculoIdoso();
             }
         }
@@ -695,6 +690,10 @@
                             classeBotaoIdoso += " piscando";
                         }
 
+                        if (!isTomado) {
+                            agendarAlarmeNativo(med.id, med.nome, med.horario);
+                        }
+
                         idosoHtml += `
                             <div class="med-card-idoso" style="${isTomado ? 'opacity: 0.75; background: #e2e8f0;' : ''}">
                                 <img src="${med.foto}" alt="${med.nome}" class="med-img">
@@ -751,17 +750,23 @@
                     const perfilLogado = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
                     if (dispararAlarmeIdoso && (perfilLogado === 'idoso' || visaoAtualCuidador === 'idoso')) {
                         tocarExatamente10Pins();
-                        dispararNotificacaoPopUpNativa(idEncontradoUrgente, nomeUrgente);
                     }
                 });
         }
 
-        // Dispara o pop-up nativo com o botão JÁ TOMEI
-        async function dispararNotificacaoPopUpNativa(medicamentoId, nomeRemedio) {
+        async function agendarAlarmeNativo(medicamentoId, nomeRemedio, horarioStr) {
             if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
                 const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
+                const [h, m] = horarioStr.split(':').map(Number);
                 
-                // Evitar spam duplicado de notificações no mesmo minuto
+                const agora = new Date();
+                let dataAlarme = new Date();
+                dataAlarme.setHours(h, m, 0, 0);
+
+                if (dataAlarme <= agora) {
+                    dataAlarme.setDate(dataAlarme.getDate() + 1);
+                }
+
                 const notifId = Math.abs(hashCode(medicamentoId));
 
                 await LocalNotifications.schedule({
@@ -769,7 +774,7 @@
                         title: "🚨 HORA DE TOMAR O REMÉDIO!",
                         body: `Tome agora: ${nomeRemedio}`,
                         id: notifId,
-                        schedule: { at: new Date(Date.now() + 100) },
+                        schedule: { at: dataAlarme },
                         sound: 'default',
                         channelId: 'freetalk_alarme',
                         extra: { medicamentoId: medicamentoId },
@@ -777,7 +782,6 @@
                     }]
                 });
 
-                // Regista a ação interativa de botão na notificação
                 try {
                     await LocalNotifications.registerActionTypes({
                         types: [{
@@ -789,9 +793,7 @@
                             }]
                         }]
                     });
-                } catch(e) {
-                    // Tipo já registado anteriormente
-                }
+                } catch(e) {}
             }
         }
 
@@ -869,14 +871,12 @@
                 horaTomado: horarioAtual,
                 dataAtualizacao: new Date().toISOString().split('T')[0]
             }).then(() => {
-                // Cancelar notificação pendente se o idoso já tomou
                 if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
                     window.Capacitor.Plugins.LocalNotifications.cancel({ notifications: [{ id: Math.abs(hashCode(id)) }] });
                 }
             });
         }
 
-        // Exatamente 10 bips (pins) e pára sozinho
         function tocarExatamente10Pins() {
             if (audioIntervaloID) return;
             try {
