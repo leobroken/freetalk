@@ -187,8 +187,8 @@
             background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 10px;
             border-left: 5px solid var(--primary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
         }
-        .btn-avisar { background: var(--warning); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
-        .btn-avisar.ativo { background: var(--danger); animation: piscarBotao 0.8s infinite alternate; }
+        .btn-avisar { background: #94a3b8; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; cursor: not-allowed; }
+        .btn-avisar.ativo { background: var(--danger); cursor: pointer; animation: piscarBotao 0.8s infinite alternate; }
         
         .btn-delete { background: #64748b; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
 
@@ -202,19 +202,18 @@
             background: rgba(220, 38, 38, 0.98); z-index: 2147483647; display: none;
             flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; padding: 20px; box-sizing: border-box;
             box-shadow: 0 0 100px rgba(0,0,0,0.9);
-            cursor: pointer;
         }
         #alerta-urgente-overlay h2 { font-size: 2.2rem; margin-bottom: 15px; animation: piscar 0.8s infinite alternate; }
         @keyframes piscar { from { opacity: 1; } to { opacity: 0.4; } }
     </style>
 </head>
 <body>
-    <!-- Ecrã de Alerta Urgente (Tela Vermelha) -->
-    <div id="alerta-urgente-overlay" onclick="tocarTelaOuBotaoUrgente(event)">
+    <!-- Ecrã de Alerta Urgente (Tela Vermelha com Botão Grande JÁ TOMEI) -->
+    <div id="alerta-urgente-overlay">
         <h2>🚨 HORA DO REMÉDIO! 🚨</h2>
-        <p id="texto-aviso-urgente" style="font-size: 1.4rem; font-weight: bold; margin-bottom: 25px;">CLIQUE AQUI SE JÁ TOMOU O REMÉDIO</p>
-        <button class="big-btn piscando" style="background: white; color: var(--danger); max-width: 400px; font-size: 1.3rem;">
-            JÁ TOMEI ESSE REMÉDIO ✔️
+        <p id="texto-aviso-urgente" style="font-size: 1.4rem; font-weight: bold; margin-bottom: 25px;">CLIQUE NO BOTÃO ABAIXO SE JÁ TOMOU O REMÉDIO</p>
+        <button class="big-btn piscando" style="background: white; color: var(--danger); max-width: 400px; font-size: 1.5vh; padding: 30px;" onclick="clicarJaTomeiUrgente()">
+            JÁ TOMEI ✔️
         </button>
     </div>
 
@@ -387,17 +386,6 @@
         const messaging = firebase.messaging();
         auth.useDeviceLanguage();
 
-        // Inicializa o plugin nativo do Google Auth ao carregar a página
-        document.addEventListener('DOMContentLoaded', () => {
-            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth) {
-                window.Capacitor.Plugins.GoogleAuth.initialize({
-                    clientId: '179521983087-web.apps.googleusercontent.com',
-                    scopes: ['profile', 'email'],
-                    grantOfflineAccess: true,
-                });
-            }
-        });
-
         const VAPID_KEY_PUBLICO = "BGmFr9jxNmUr_6e50xrzjGgiM0F4Aq_pSf6G722OqWZPWYWLoo83hHNcWqbIFUolUlrI-zFnvdJX7BMaSLKlVzU";
 
         async function registarTokenDispositivo() {
@@ -463,20 +451,9 @@
             });
         }
 
-        // Função corrigida para usar o Google Auth nativo no telemóvel e fallback web no PC
-        async function loginGoogle() {
-            try {
-                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth) {
-                    const googleUser = await window.Capacitor.Plugins.GoogleAuth.signIn();
-                    const credential = firebase.auth.GoogleAuthProvider.credential(googleUser.authentication.idToken);
-                    await auth.signInWithCredential(credential);
-                } else {
-                    const provider = new firebase.auth.GoogleAuthProvider();
-                    await auth.signInWithPopup(provider);
-                }
-            } catch (err) {
-                alert("Erro ao entrar com Google: " + err.message);
-            }
+        function loginGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(err => alert("Erro ao entrar com Google: " + err.message));
         }
 
         function loginEmailSenha() {
@@ -695,19 +672,12 @@
                             db.collection('medicamentos').doc(id).update({
                                 status: "Pendente",
                                 alertaUrgente: false,
-                                avisoEnviadoAoCuidador: false,
+                                tempoUltimoAlarme: null,
                                 horaTomado: "",
                                 dataAtualizacao: hoje
                             });
                             return;
                         }
-
-                        const horarioMinutos = converterHorarioParaMinutos(med.horario);
-                        const agoraMinutos = new Date().getHours() * 60 + new Date().getMinutes();
-                        if (med.status === "Pendente" && !med.avisoEnviadoAoCuidador && (agoraMinutos - horarioMinutos >= 5)) {
-                            db.collection('medicamentos').doc(id).update({ avisoEnviadoAoCuidador: true });
-                        }
-
                         listaMedicamentos.push({ id, ...med });
                     });
 
@@ -745,19 +715,39 @@
                             </div>
                         `;
 
-                        const passou5Min = (horaAtualMinutos - horarioRemedioMinutos >= 5) && !isTomado;
-                        const deveDestacarBotao = med.alertaUrgente || passou5Min;
+                        // Regra rigorosa dos 5 minutos para o botão AVISAR IDOSO
+                        const minutosPassadosDesdeHorario = horaAtualMinutos - horarioRemedioMinutos;
+                        let passou5Minutos = (minutosPassadosDesdeHorario >= 5);
+
+                        // Se o cuidador já clicou anteriormente, avalia se já se passaram 5 minutos desde o último alerta disparado
+                        let ativoPelaRegra = false;
+                        if (!isTomado) {
+                            if (med.alertaUrgente) {
+                                if (med.tempoUltimoAlarme) {
+                                    const minutosDesdeUltimoAlarme = (Date.now() - med.tempoUltimoAlarme) / 60000;
+                                    if (minutosDesdeUltimoAlarme >= 5) {
+                                        ativoPelaRegra = true; // Já passaram 5 min desde o último toque do cuidador
+                                    } else {
+                                        ativoPelaRegra = false; // Ainda aguardando os 5 minutos
+                                    }
+                                } else {
+                                    ativoPelaRegra = true;
+                                }
+                            } else if (passou5Minutos) {
+                                ativoPelaRegra = true; // Passou 5 min do horário original do remédio
+                            }
+                        }
 
                         cuidadorHtml += `
                             <div class="caregiver-item">
                                 <div>
                                     <strong>${med.nome}</strong> (${med.horario})<br>
                                     <span style="color: ${isTomado ? 'var(--success)' : 'var(--warning)'}; font-weight: bold;">
-                                        ${isTomado ? 'Status: Já tomado' : (passou5Min ? '⚠️ Não tomou no horário (Passou 5 min)' : 'Pendente')}
+                                        ${isTomado ? 'Status: Já tomado' : (passou5Minutos ? '⚠️ Não tomou (Passaram mais de 5 min)' : 'Pendente (Aguardando horário/5 min)')}
                                     </span>
                                 </div>
                                 <div style="display: flex; gap: 8px; align-items: center;">
-                                    <button class="btn-avisar ${deveDestacarBotao ? 'ativo' : ''}" onclick="acionarAlertaUrgenteCuidador('${med.id}', ${med.alertaUrgente})">
+                                    <button class="btn-avisar ${ativoPelaRegra ? 'ativo' : ''}" ${!ativoPelaRegra ? 'disabled' : ''} onclick="acionarAlertaUrgenteCuidador('${med.id}')">
                                         AVISAR IDOSO
                                     </button>
                                     <button class="btn-delete" onclick="deletarRemedio('${med.id}')">Excluir</button>
@@ -772,19 +762,20 @@
                     const perfilLogado = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
                     if (dispararAlarmeIdoso && (perfilLogado === 'idoso' || visaoAtualCuidador === 'idoso')) {
                         idMedicamentoPendenteUrgente = idEncontradoUrgente;
-                        document.getElementById('texto-aviso-urgente').innerText = `CLIQUE AQUI SE JÁ TOMOU O REMÉDIO: ${nomeUrgente}`;
+                        document.getElementById('texto-aviso-urgente').innerText = `CLIQUE ABAIXO SE JÁ TOMOU O REMÉDIO: ${nomeUrgente}`;
                         document.getElementById('alerta-urgente-overlay').style.display = 'flex';
                         tocarExatamente10Pins();
                     }
                 });
         }
 
-        function acionarAlertaUrgenteCuidador(id, estadoAtual) {
-            const novoEstado = !estadoAtual;
+        function acionarAlertaUrgenteCuidador(id) {
+            // Ao clicar, desativa o botão instantaneamente e regista o timestamp atual para a regra dos 5 minutos
             db.collection('medicamentos').doc(id).update({
-                alertaUrgente: novoEstado
+                alertaUrgente: true,
+                tempoUltimoAlarme: Date.now()
             }).then(() => {
-                alert(novoEstado ? "Alerta enviado! O alarme vai tocar no telemóvel do idoso." : "Alerta desativado.");
+                alert("Alerta enviado! O botão desativou e só voltará a habilitar daqui a 5 minutos se o idoso não tomar.");
             });
         }
 
@@ -821,6 +812,7 @@
                 foto: fotoBase64Global || 'https://cdn-icons-png.flaticon.com/512/883/883397.png',
                 status: "Pendente",
                 alertaUrgente: false,
+                tempoUltimoAlarme: null,
                 avisoEnviadoAoCuidador: false,
                 horaTomado: "",
                 dataAtualizacao: new Date().toISOString().split('T')[0]
@@ -833,9 +825,10 @@
 
         function deletarRemedio(id) { if (confirm("Excluir remédio?")) db.collection('medicamentos').doc(id).delete(); }
 
-        function tocarTelaOuBotaoUrgente(event) {
-            event.stopPropagation();
-            if (idMedicamentoPendenteUrgente) tomarRemedio(idMedicamentoPendenteUrgente);
+        function clicarJaTomeiUrgente() {
+            if (idMedicamentoPendenteUrgente) {
+                tomarRemedio(idMedicamentoPendenteUrgente);
+            }
         }
 
         function tomarRemedio(id) {
@@ -844,6 +837,7 @@
             db.collection('medicamentos').doc(id).update({
                 status: "Tomado",
                 alertaUrgente: false,
+                tempoUltimoAlarme: null,
                 horaTomado: horarioAtual,
                 dataAtualizacao: new Date().toISOString().split('T')[0]
             }).then(() => { idMedicamentoPendenteUrgente = null; });
