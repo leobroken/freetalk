@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
     
-    <!-- Firebase SDK (App, Auth, Firestore, Messaging) -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -196,27 +196,9 @@
             background: #ecfdf5; border: 2px dashed var(--success); padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px;
         }
         .codigo-destaque { font-size: 1.8rem; font-weight: bold; color: var(--success); letter-spacing: 2px; margin: 5px 0; }
-
-        #alerta-urgente-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(220, 38, 38, 0.98); z-index: 2147483647; display: none;
-            flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; padding: 20px; box-sizing: border-box;
-            box-shadow: 0 0 100px rgba(0,0,0,0.9);
-        }
-        #alerta-urgente-overlay h2 { font-size: 2.2rem; margin-bottom: 15px; animation: piscar 0.8s infinite alternate; }
-        @keyframes piscar { from { opacity: 1; } to { opacity: 0.4; } }
     </style>
 </head>
 <body>
-    <!-- Ecrã de Alerta Urgente (Tela Vermelha com Botão Grande JÁ TOMEI) -->
-    <div id="alerta-urgente-overlay">
-        <h2>🚨 HORA DO REMÉDIO! 🚨</h2>
-        <p id="texto-aviso-urgente" style="font-size: 1.4rem; font-weight: bold; margin-bottom: 25px;">CLIQUE NO BOTÃO ABAIXO SE JÁ TOMOU O REMÉDIO</p>
-        <button class="big-btn piscando" style="background: white; color: var(--danger); max-width: 400px; font-size: 1.5vh; padding: 30px;" onclick="clicarJaTomeiUrgente()">
-            JÁ TOMEI ✔️
-        </button>
-    </div>
-
     <div class="container">
         <header>
             <button id="btn-alternar-visao" class="btn-acao-topo" onclick="alternarVisaoCuidador()">🔄 Ver Tela do Idoso</button>
@@ -383,27 +365,38 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-        const messaging = firebase.messaging();
         auth.useDeviceLanguage();
 
-        const VAPID_KEY_PUBLICO = "BGmFr9jxNmUr_6e50xrzjGgiM0F4Aq_pSf6G722OqWZPWYWLoo83hHNcWqbIFUolUlrI-zFnvdJX7BMaSLKlVzU";
+        // Configurar Listener para Ações nas Notificações Nativas (Botão JÁ TOMEI)
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+                const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
+                
+                // Pedir permissão para notificações locais
+                await LocalNotifications.requestPermissions();
 
-        async function registarTokenDispositivo() {
-            try {
-                const permissao = await Notification.requestPermission();
-                if (permissao === 'granted') {
-                    const token = await messaging.getToken({ vapidKey: VAPID_KEY_PUBLICO });
-                    if (token && utilizadorAtual) {
-                        await db.collection('tokens_dispositivos').doc(utilizadorAtual.uid).set({
-                            token: token,
-                            atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-                        }, { merge: true });
+                // Registar canal com prioridade máxima e som de alarme
+                await LocalNotifications.createChannel({
+                    id: 'freetalk_alarme',
+                    name: 'Alarme de Medicamentos',
+                    importance: 5,
+                    visibility: 1,
+                    sound: 'default',
+                    lights: true,
+                    vibration: true
+                });
+
+                // Ação quando o utilizador clica no botão "JÁ TOMEI" direto na notificação
+                LocalNotifications.addListener('localNotificationActionPerformed', (notificationAction) => {
+                    if (notificationAction.actionId === 'ja_tomei_action') {
+                        const medicamentoId = notificationAction.notification.extra.medicamentoId;
+                        if (medicamentoId) {
+                            tomarRemedio(medicamentoId);
+                        }
                     }
-                }
-            } catch (err) {
-                console.log("Erro FCM:", err);
+                });
             }
-        }
+        });
 
         let utilizadorAtual = null;
         let dadosUtilizador = null;
@@ -413,7 +406,6 @@
         let tipoVinculoAtual = '';
         let visaoAtualCuidador = 'gestao';
         let codigoVinculoAtivoGlobal = '';
-        let idMedicamentoPendenteUrgente = null;
 
         setInterval(() => {
             const agora = new Date();
@@ -433,7 +425,6 @@
                 utilizadorAtual = user;
                 document.getElementById('btn-logout').style.display = 'block';
                 await verificarDadosPerfil(user.uid);
-                registarTokenDispositivo();
             } else {
                 utilizadorAtual = null;
                 dadosUtilizador = null;
@@ -620,13 +611,13 @@
             if (perfil === 'idoso' || perfil === 'idoso_modo_cuidador') {
                 document.getElementById('section-idoso').classList.add('active');
                 document.getElementById('section-cuidador').classList.remove('active');
-                escutarMedicamentos(codigoVinculo, perfil === 'idoso_modo_cuidador');
+                escutarMedicamentos(codigoVinculo);
             } else {
                 document.getElementById('section-cuidador').classList.add('active');
                 document.getElementById('section-idoso').classList.remove('active');
                 const codigoExibicao = codigoVinculo || localStorage.getItem(`freetalk_codigo_${utilizadorAtual.uid}`) || 'FREE-1234';
                 document.getElementById('display-codigo-cuidador').innerText = codigoExibicao;
-                escutarMedicamentos(codigoExibicao, false);
+                escutarMedicamentos(codigoExibicao);
             }
         }
 
@@ -715,26 +706,24 @@
                             </div>
                         `;
 
-                        // Regra rigorosa dos 5 minutos para o botão AVISAR IDOSO
                         const minutosPassadosDesdeHorario = horaAtualMinutos - horarioRemedioMinutos;
                         let passou5Minutos = (minutosPassadosDesdeHorario >= 5);
 
-                        // Se o cuidador já clicou anteriormente, avalia se já se passaram 5 minutos desde o último alerta disparado
                         let ativoPelaRegra = false;
                         if (!isTomado) {
                             if (med.alertaUrgente) {
                                 if (med.tempoUltimoAlarme) {
                                     const minutosDesdeUltimoAlarme = (Date.now() - med.tempoUltimoAlarme) / 60000;
                                     if (minutosDesdeUltimoAlarme >= 5) {
-                                        ativoPelaRegra = true; // Já passaram 5 min desde o último toque do cuidador
+                                        ativoPelaRegra = true;
                                     } else {
-                                        ativoPelaRegra = false; // Ainda aguardando os 5 minutos
+                                        ativoPelaRegra = false;
                                     }
                                 } else {
                                     ativoPelaRegra = true;
                                 }
                             } else if (passou5Minutos) {
-                                ativoPelaRegra = true; // Passou 5 min do horário original do remédio
+                                ativoPelaRegra = true;
                             }
                         }
 
@@ -761,16 +750,61 @@
 
                     const perfilLogado = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
                     if (dispararAlarmeIdoso && (perfilLogado === 'idoso' || visaoAtualCuidador === 'idoso')) {
-                        idMedicamentoPendenteUrgente = idEncontradoUrgente;
-                        document.getElementById('texto-aviso-urgente').innerText = `CLIQUE ABAIXO SE JÁ TOMOU O REMÉDIO: ${nomeUrgente}`;
-                        document.getElementById('alerta-urgente-overlay').style.display = 'flex';
                         tocarExatamente10Pins();
+                        dispararNotificacaoPopUpNativa(idEncontradoUrgente, nomeUrgente);
                     }
                 });
         }
 
+        // Dispara o pop-up nativo com o botão JÁ TOMEI
+        async function dispararNotificacaoPopUpNativa(medicamentoId, nomeRemedio) {
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+                const LocalNotifications = window.Capacitor.Plugins.LocalNotifications;
+                
+                // Evitar spam duplicado de notificações no mesmo minuto
+                const notifId = Math.abs(hashCode(medicamentoId));
+
+                await LocalNotifications.schedule({
+                    notifications: [{
+                        title: "🚨 HORA DE TOMAR O REMÉDIO!",
+                        body: `Tome agora: ${nomeRemedio}`,
+                        id: notifId,
+                        schedule: { at: new Date(Date.now() + 100) },
+                        sound: 'default',
+                        channelId: 'freetalk_alarme',
+                        extra: { medicamentoId: medicamentoId },
+                        actionTypeId: 'REMEDIO_ACTION'
+                    }]
+                });
+
+                // Regista a ação interativa de botão na notificação
+                try {
+                    await LocalNotifications.registerActionTypes({
+                        types: [{
+                            id: 'REMEDIO_ACTION',
+                            actions: [{
+                                id: 'ja_tomei_action',
+                                title: 'JÁ TOMEI ✔️',
+                                foreground: false
+                            }]
+                        }]
+                    });
+                } catch(e) {
+                    // Tipo já registado anteriormente
+                }
+            }
+        }
+
+        function hashCode(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = (hash << 5) - hash + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return hash;
+        }
+
         function acionarAlertaUrgenteCuidador(id) {
-            // Ao clicar, desativa o botão instantaneamente e regista o timestamp atual para a regra dos 5 minutos
             db.collection('medicamentos').doc(id).update({
                 alertaUrgente: true,
                 tempoUltimoAlarme: Date.now()
@@ -825,12 +859,6 @@
 
         function deletarRemedio(id) { if (confirm("Excluir remédio?")) db.collection('medicamentos').doc(id).delete(); }
 
-        function clicarJaTomeiUrgente() {
-            if (idMedicamentoPendenteUrgente) {
-                tomarRemedio(idMedicamentoPendenteUrgente);
-            }
-        }
-
         function tomarRemedio(id) {
             pararAlarmeGeral();
             const horarioAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
@@ -840,7 +868,12 @@
                 tempoUltimoAlarme: null,
                 horaTomado: horarioAtual,
                 dataAtualizacao: new Date().toISOString().split('T')[0]
-            }).then(() => { idMedicamentoPendenteUrgente = null; });
+            }).then(() => {
+                // Cancelar notificação pendente se o idoso já tomou
+                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+                    window.Capacitor.Plugins.LocalNotifications.cancel({ notifications: [{ id: Math.abs(hashCode(id)) }] });
+                }
+            });
         }
 
         // Exatamente 10 bips (pins) e pára sozinho
@@ -880,8 +913,6 @@
                 clearInterval(audioIntervaloID); 
                 audioIntervaloID = null; 
             }
-            const overlay = document.getElementById('alerta-urgente-overlay');
-            if (overlay) overlay.style.display = 'none';
         }
     </script>
 </body>
