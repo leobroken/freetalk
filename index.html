@@ -412,9 +412,12 @@
             });
         }
 
+        // ALTERAÇÃO PARA O LOGIN COM GOOGLE NO APK (Evita erro de pop-up cancelado)
         function loginGoogle() {
             const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithPopup(provider).catch(err => alert("Erro ao entrar com Google: " + err.message));
+            auth.signInWithRedirect(provider).catch(err => {
+                alert("Erro ao entrar com Google: " + err.message);
+            });
         }
 
         function loginEmailSenha() {
