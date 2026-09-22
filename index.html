@@ -104,7 +104,6 @@
             top: 5px;
         }
         #btn-logout { right: 0; background: var(--danger); }
-        #btn-alternar-visao { right: 65px; background: #0284c7; display: none; }
 
         .profile-card-container {
             display: flex;
@@ -199,7 +198,6 @@
 <body>
     <div class="container">
         <header>
-            <button id="btn-alternar-visao" class="btn-acao-topo" onclick="alternarVisaoCuidador()">🔄 Ver Tela do Idoso</button>
             <button id="btn-logout" class="btn-acao-topo" style="display: none;" onclick="sairDaConta()">🚪 Sair</button>
             <h1>Free Talk</h1>
             <p id="subtitulo-topo">Gestão Compartilhada de Medicamentos</p>
@@ -374,7 +372,6 @@
         let fotoBase64Global = "";
         let audioIntervaloID = null;
         let tipoVinculoAtual = '';
-        let visaoAtualCuidador = 'gestao';
         let codigoVinculoAtivoGlobal = '';
 
         setInterval(() => {
@@ -400,7 +397,6 @@
                 dadosUtilizador = null;
                 if (unsubscribeMedicamentos) unsubscribeMedicamentos();
                 document.getElementById('btn-logout').style.display = 'none';
-                document.getElementById('btn-alternar-visao').style.display = 'none';
                 esconderTodasAsTelas();
                 document.getElementById('tela-login').style.display = 'block';
             }
@@ -412,7 +408,6 @@
             });
         }
 
-        // LOGIN COM GOOGLE (Usa Plugin Nativo no APK e Popup na Web)
         async function loginGoogle() {
             if (window.Capacitor && window.Capacitor.isNativePlatform()) {
                 try {
@@ -505,7 +500,7 @@
                     await LocalNotifications.requestPermissions();
                     await LocalNotifications.createChannel({
                         id: 'freetalk_alarme',
-                        name: 'Alarme de Medicamentos',
+                        name: 'Alarme de Medicamentos Urgente',
                         importance: 5,
                         visibility: 1,
                         sound: 'default',
@@ -593,32 +588,12 @@
             }
         }
 
-        function alternarVisaoCuidador() {
-            const perfilSalvo = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
-            if (perfilSalvo === 'idoso') return;
-
-            if (visaoAtualCuidador === 'gestao') {
-                visaoAtualCuidador = 'idoso';
-                document.getElementById('btn-alternar-visao').innerText = '📋 Ver Painel de Gestão';
-                carregarPainelPrincipal('idoso_modo_cuidador', codigoVinculoAtivoGlobal);
-            } else {
-                visaoAtualCuidador = 'gestao';
-                document.getElementById('btn-alternar-visao').innerText = '🔄 Ver Tela do Idoso';
-                carregarPainelPrincipal('cuidador', codigoVinculoAtivoGlobal);
-            }
-        }
-
         function carregarPainelPrincipal(perfil, codigoVinculo = null) {
             esconderTodasAsTelas();
             document.getElementById('main-app').style.display = 'block';
             codigoVinculoAtivoGlobal = codigoVinculo;
 
-            const perfilSalvo = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
-            if (perfilSalvo !== 'idoso') {
-                document.getElementById('btn-alternar-visao').style.display = 'block';
-            }
-
-            if (perfil === 'idoso' || perfil === 'idoso_modo_cuidador') {
+            if (perfil === 'idoso') {
                 document.getElementById('section-idoso').classList.add('active');
                 document.getElementById('section-cuidador').classList.remove('active');
                 escutarMedicamentos(codigoVinculo);
@@ -651,8 +626,6 @@
                     let cuidadorHtml = "";
                     const hoje = new Date().toISOString().split('T')[0];
                     let dispararAlarmeIdoso = false;
-                    let nomeUrgente = "";
-                    let idEncontradoUrgente = null;
 
                     if (snapshot.empty) {
                         document.getElementById('idoso-meds-container').innerHTML = "<p style='text-align:center; color:#64748b;'>Nenhum remédio cadastrado.</p>";
@@ -682,7 +655,15 @@
                         listaMedicamentos.push({ id, ...med });
                     });
 
-                    listaMedicamentos.sort((a, b) => a.horario.localeCompare(b.horario));
+                    // ORDENAÇÃO INTELIGENTE: Pendentes primeiro (por horário), Tomados vão para o fundo
+                    listaMedicamentos.sort((a, b) => {
+                        const aTomado = (a.status === "Tomado");
+                        const bTomado = (b.status === "Tomado");
+                        if (aTomado !== bTomado) {
+                            return aTomado ? 1 : -1;
+                        }
+                        return a.horario.localeCompare(b.horario);
+                    });
 
                     const agoraData = new Date();
                     const horaAtualMinutos = agoraData.getHours() * 60 + agoraData.getMinutes();
@@ -700,13 +681,7 @@
                         let classeBotaoIdoso = "big-btn";
                         if (!isTomado && (horaAtualMinutos >= horarioRemedioMinutos || med.alertaUrgente)) {
                             dispararAlarmeIdoso = true;
-                            nomeUrgente = med.nome;
-                            idEncontradoUrgente = med.id;
                             classeBotaoIdoso += " piscando";
-                        }
-
-                        if (!isTomado) {
-                            agendarAlarmeNativo(med.id, med.nome, med.horario);
                         }
 
                         idosoHtml += `
@@ -763,7 +738,7 @@
                     document.getElementById('cuidador-list-container').innerHTML = cuidadorHtml;
 
                     const perfilLogado = localStorage.getItem(`freetalk_perfil_${utilizadorAtual.uid}`);
-                    if (dispararAlarmeIdoso && (perfilLogado === 'idoso' || visaoAtualCuidador === 'idoso')) {
+                    if (dispararAlarmeIdoso && perfilLogado === 'idoso') {
                         tocarExatamente10Pins();
                     }
                 });
@@ -784,19 +759,6 @@
 
                 const notifId = Math.abs(hashCode(medicamentoId));
 
-                await LocalNotifications.schedule({
-                    notifications: [{
-                        title: "🚨 HORA DE TOMAR O REMÉDIO!",
-                        body: `Tome agora: ${nomeRemedio}`,
-                        id: notifId,
-                        schedule: { at: dataAlarme },
-                        sound: 'default',
-                        channelId: 'freetalk_alarme',
-                        extra: { medicamentoId: medicamentoId },
-                        actionTypeId: 'REMEDIO_ACTION'
-                    }]
-                });
-
                 try {
                     await LocalNotifications.registerActionTypes({
                         types: [{
@@ -808,7 +770,23 @@
                             }]
                         }]
                     });
-                } catch(e) {}
+
+                    await LocalNotifications.schedule({
+                        notifications: [{
+                            title: "🚨 HORA DE TOMAR O REMÉDIO!",
+                            body: `Toque para confirmar: ${nomeRemedio}`,
+                            id: notifId,
+                            schedule: { at: dataAlarme },
+                            sound: 'default',
+                            channelId: 'freetalk_alarme',
+                            extra: { medicamentoId: medicamentoId },
+                            actionTypeId: 'REMEDIO_ACTION',
+                            autoCancel: false
+                        }]
+                    });
+                } catch(e) {
+                    console.log("Erro ao agendar notificação nativa:", e);
+                }
             }
         }
 
@@ -821,7 +799,7 @@
             return hash;
         }
 
-        function acionarAlertaUrgenteCuidador(id) {
+        async function acionarAlertaUrgenteCuidador(id) {
             db.collection('medicamentos').doc(id).update({
                 alertaUrgente: true,
                 tempoUltimoAlarme: Date.now()
@@ -849,12 +827,13 @@
             }
         }
 
-        function adicionarRemedio() {
+        async function adicionarRemedio() {
             const nome = document.getElementById('novo-nome').value.trim();
             const horario = document.getElementById('novo-horario').value.trim();
             if (!nome || !horario) { alert("Preencha o nome e o horário."); return; }
 
             const codigoCuidador = document.getElementById('display-codigo-cuidador').innerText;
+            
             db.collection('medicamentos').add({
                 codigoVinculo: codigoCuidador,
                 nome: nome,
@@ -867,10 +846,15 @@
                 avisoEnviadoAoCuidador: false,
                 horaTomado: "",
                 dataAtualizacao: new Date().toISOString().split('T')[0]
-            }).then(() => {
+            }).then(async (docRef) => {
+                await agendarAlarmeNativo(docRef.id, nome, horario);
+
                 document.getElementById('novo-nome').value = '';
                 document.getElementById('novo-horario').value = '';
-                alert("Adicionado com sucesso!");
+                fotoBase64Global = "";
+                document.getElementById('preview-img').style.display = 'none';
+                document.getElementById('preview-text').style.display = 'none';
+                alert("Remédio adicionado e alarme nativo configurado!");
             });
         }
 
@@ -932,3 +916,4 @@
     </script>
 </body>
 </html>
+
